@@ -43,11 +43,16 @@ func runPreview(id int) error {
 	fmt.Printf("\x1b[1mDescription\x1b[0m\n%s\n", desc)
 
 	fmt.Printf("\n\x1b[2mSaved %s \u00b7 id %d\x1b[0m\n", b.CreatedAt.Format("Jan 2, 2006"), b.ID)
+
+	markdownStatus := "(not saved)"
 	if b.MarkdownFile != "" {
-		fmt.Printf("\x1b[2mmarkdown: %s\x1b[0m\n", filepath.Join(cfg.markdownDir(), b.MarkdownFile))
+		markdownStatus = filepath.Join(cfg.markdownDir(), b.MarkdownFile)
 	}
+	archiveStatus := "(not saved)"
 	if b.ArchiveFile != "" {
-		fmt.Printf("\x1b[2marchive:  %s\x1b[0m\n", filepath.Join(cfg.archiveDir(), b.ArchiveFile))
+		archiveStatus = filepath.Join(cfg.archiveDir(), b.ArchiveFile)
 	}
+	fmt.Printf("\x1b[2mmarkdown: %s\x1b[0m\n", markdownStatus)
+	fmt.Printf("\x1b[2marchive:  %s\x1b[0m\n", archiveStatus)
 	return nil
 }

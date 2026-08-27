@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func runSearch() error {
+func runSearch(fields SearchFields) error {
 	cfg, store, err := loadCfgAndStore()
 	if err != nil {
 		return err
@@ -17,7 +17,7 @@ func runSearch() error {
 	}
 
 	if fzfAvailable() {
-		if err := runSearchFzf(cfg, store); err != nil {
+		if err := runSearchFzf(cfg, store, fields); err != nil {
 			fmt.Printf("(fzf picker failed: %v -- falling back to plain search)\n", err)
 		} else {
 			return nil
@@ -25,12 +25,13 @@ func runSearch() error {
 	} else {
 		fmt.Println("(tip: install fzf for a fuzzy picker here -- falling back to plain search)")
 	}
-	return runSearchPrompt(cfg, store)
+	return runSearchPrompt(cfg, store, fields)
 }
 
-// runSearchLegacy skips the fzf check entirely, for `liber -sl` -- useful
-// if you have fzf installed but want the plain prompt anyway.
-func runSearchLegacy() error {
+// runSearchLegacy skips the fzf check entirely, for `liber -sl` (and its
+// field-restricted variants like `-sld`) -- useful if you have fzf
+// installed but want the plain prompt anyway.
+func runSearchLegacy(fields SearchFields) error {
 	cfg, store, err := loadCfgAndStore()
 	if err != nil {
 		return err
@@ -39,7 +40,7 @@ func runSearchLegacy() error {
 		fmt.Println("No bookmarks yet. Add one with: liber <url>")
 		return nil
 	}
-	return runSearchPrompt(cfg, store)
+	return runSearchPrompt(cfg, store, fields)
 }
 
 // runSearchFzf pipes the bookmark list to fzf for fuzzy selection, then
@@ -47,14 +48,14 @@ func runSearchLegacy() error {
 // plain-prompt path. It loops so edits/deletes are reflected next time the
 // picker opens. A genuine fzf failure (as opposed to the user cancelling)
 // is returned to the caller so it can fall back to the plain prompt.
-func runSearchFzf(cfg Config, store *Store) error {
+func runSearchFzf(cfg Config, store *Store, fields SearchFields) error {
 	for {
 		all := store.All()
 		if len(all) == 0 {
 			fmt.Println("No bookmarks left.")
 			return nil
 		}
-		id, ok, err := pickWithFzf(all)
+		id, ok, err := pickWithFzf(all, fields)
 		if err != nil {
 			return err
 		}
@@ -73,13 +74,14 @@ func runSearchFzf(cfg Config, store *Store) error {
 
 // runSearchPrompt is the dependency-free fallback: type a query, get a
 // numbered list, type an id to act on it.
-func runSearchPrompt(cfg Config, store *Store) error {
+func runSearchPrompt(cfg Config, store *Store, fields SearchFields) error {
+	label := fmt.Sprintf("Search %s (empty = all, 'q' to quit)", fields.Label())
 	for {
-		q := promptLine("Search title/url/tag/folder (empty = all, 'q' to quit)")
+		q := promptLine(label)
 		if q == "q" {
 			return nil
 		}
-		results := store.Search(q)
+		results := store.Search(q, fields)
 		if len(results) == 0 {
 			fmt.Println("No matches.")
 			continue
@@ -164,9 +166,25 @@ func printResults(list []*Bookmark) {
 		if len(b.Tags) > 0 {
 			tags = " #" + strings.Join(b.Tags, " #")
 		}
-		fmt.Printf("[%d] %s\n     %s\n     folder:%s%s\n", b.ID, b.Title, b.URL, folder, tags)
+		fmt.Printf("[%d] %s%s\n     %s\n     folder:%s%s\n", b.ID, b.Title, badgeSuffix(b), b.URL, folder, tags)
 	}
 	fmt.Println()
+}
+
+// badgeSuffix renders " [md]", " [arc]", " [md,arc]", or "" depending on
+// which of a bookmark's markdown/archive copies exist.
+func badgeSuffix(b *Bookmark) string {
+	var parts []string
+	if b.MarkdownFile != "" {
+		parts = append(parts, "md")
+	}
+	if b.ArchiveFile != "" {
+		parts = append(parts, "arc")
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return " [" + strings.Join(parts, ",") + "]"
 }
 
 func runList() error {
