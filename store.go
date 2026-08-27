@@ -99,13 +99,55 @@ func (s *Store) Delete(id int) bool {
 	return false
 }
 
-// Search does a case-insensitive substring match across title, URL,
-// folder, description and tags. An empty query returns everything.
-func (s *Store) Search(query string) []*Bookmark {
+// SearchFields restricts which bookmark fields a search considers. A zero
+// value (all flags false) means "search everything" -- the historical,
+// default behavior of `liber -s` / `liber -sl`.
+type SearchFields struct {
+	Title       bool
+	URL         bool
+	Tags        bool
+	Folder      bool
+	Description bool
+}
+
+// Any reports whether at least one field is explicitly selected.
+func (f SearchFields) Any() bool {
+	return f.Title || f.URL || f.Tags || f.Folder || f.Description
+}
+
+// Label describes the active scope for prompts/headers, e.g.
+// "title \u00b7 folder", or the full default list when nothing is restricted.
+func (f SearchFields) Label() string {
+	if !f.Any() {
+		return "title \u00b7 url \u00b7 tags \u00b7 folder \u00b7 description"
+	}
+	var parts []string
+	if f.Title {
+		parts = append(parts, "title")
+	}
+	if f.URL {
+		parts = append(parts, "url")
+	}
+	if f.Tags {
+		parts = append(parts, "tags")
+	}
+	if f.Folder {
+		parts = append(parts, "folder")
+	}
+	if f.Description {
+		parts = append(parts, "description")
+	}
+	return strings.Join(parts, " \u00b7 ")
+}
+
+// Search does a case-insensitive substring match, scoped to the given
+// fields (or every field, if none are selected). An empty query returns
+// everything in the (possibly still field-scoped) set.
+func (s *Store) Search(query string, fields SearchFields) []*Bookmark {
 	query = strings.ToLower(strings.TrimSpace(query))
 	var results []*Bookmark
 	for _, b := range s.Bookmarks {
-		if query == "" || bookmarkMatches(b, query) {
+		if query == "" || bookmarkMatches(b, query, fields) {
 			results = append(results, b)
 		}
 	}
@@ -133,22 +175,25 @@ func loadCfgAndStore() (Config, *Store, error) {
 	return cfg, store, nil
 }
 
-func bookmarkMatches(b *Bookmark, q string) bool {
-	if strings.Contains(strings.ToLower(b.Title), q) {
+func bookmarkMatches(b *Bookmark, q string, fields SearchFields) bool {
+	all := !fields.Any()
+	if (all || fields.Title) && strings.Contains(strings.ToLower(b.Title), q) {
 		return true
 	}
-	if strings.Contains(strings.ToLower(b.URL), q) {
+	if (all || fields.URL) && strings.Contains(strings.ToLower(b.URL), q) {
 		return true
 	}
-	if strings.Contains(strings.ToLower(b.Folder), q) {
+	if (all || fields.Folder) && strings.Contains(strings.ToLower(b.Folder), q) {
 		return true
 	}
-	if strings.Contains(strings.ToLower(b.Description), q) {
+	if (all || fields.Description) && strings.Contains(strings.ToLower(b.Description), q) {
 		return true
 	}
-	for _, t := range b.Tags {
-		if strings.Contains(strings.ToLower(t), q) {
-			return true
+	if all || fields.Tags {
+		for _, t := range b.Tags {
+			if strings.Contains(strings.ToLower(t), q) {
+				return true
+			}
 		}
 	}
 	return false

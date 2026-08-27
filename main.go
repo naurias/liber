@@ -41,6 +41,13 @@ func run(args []string) error {
 		return nil
 	}
 
+	if opt, legacy, ok := parseSearchFlag(args[0]); ok {
+		if legacy {
+			return runSearchLegacy(opt)
+		}
+		return runSearch(opt)
+	}
+
 	switch args[0] {
 	case "-h", "--help", "help":
 		printUsage()
@@ -48,10 +55,6 @@ func run(args []string) error {
 	case "-v", "--version":
 		fmt.Println("liber", Version)
 		return nil
-	case "-s", "--search":
-		return runSearch()
-	case "-sl", "--search-legacy":
-		return runSearchLegacy()
 	case "-l", "--list":
 		return runList()
 	case "-e", "--edit":
@@ -99,6 +102,49 @@ func run(args []string) error {
 		return err
 	}
 	return runCreate(args[0], opt)
+}
+
+// parseSearchFlag recognizes `-s`, `-sl`, and combinations like `-sn`,
+// `-sd`, `-st`, `-sf`, `-su`, `-sdf`, `-sld`, etc:
+//
+//	-s               search everything (fzf if available)
+//	-sl              same, but force the plain prompt (legacy)
+//	-s[nutdf]+       restrict search to specific field(s):
+//	                   n = title, u = url, t = tags, d = description, f = folder
+//	-sl[nutdf]+      same restriction, forced to the plain prompt
+//
+// Letters can appear in any order and combine freely. Returns ok=false for
+// anything that isn't one of these (so the caller can fall through to the
+// normal "unknown flag" / URL handling).
+func parseSearchFlag(flag string) (fields SearchFields, legacy bool, ok bool) {
+	switch flag {
+	case "--search":
+		return SearchFields{}, false, true
+	case "--search-legacy":
+		return SearchFields{}, true, true
+	}
+	if !strings.HasPrefix(flag, "-s") {
+		return SearchFields{}, false, false
+	}
+	for _, ch := range flag[2:] {
+		switch ch {
+		case 'l':
+			legacy = true
+		case 'n':
+			fields.Title = true
+		case 'u':
+			fields.URL = true
+		case 't':
+			fields.Tags = true
+		case 'd':
+			fields.Description = true
+		case 'f':
+			fields.Folder = true
+		default:
+			return SearchFields{}, false, false // not a search flag at all
+		}
+	}
+	return fields, legacy, true
 }
 
 func parseCreateFlags(args []string) (CreateOptions, error) {
@@ -162,7 +208,11 @@ Usage:
   liber <url> -t tag-a tag-b     attach tags at creation time
   liber <url> -f subfold         save into a subfolder of the base directory
   liber -s                       search/browse bookmarks, open or edit them
-  liber -sl                      same, but force the plain prompt (skip fzf even if installed)
+  liber -sn / -su / -st / -sd / -sf
+                                  same, but restricted to one field: title / url / tags /
+                                  description / folder (combine freely, e.g. -sdf = folder+description)
+  liber -sl                      force the plain prompt (skip fzf even if installed)
+  liber -sld                     legacy prompt restricted to descriptions (mix -l with any of n/u/t/d/f)
   liber -l                       list all bookmarks with their ids
   liber -e <id>                  edit a bookmark interactively
   liber -e <id> -t tag-a tag-b   set a bookmark's tags directly
@@ -180,9 +230,11 @@ Flags may be combined, e.g.:
   liber https://example.com -i -t news reading -f articles -md -a
 
 liber -s uses fzf for picking if it's installed on PATH (title/url/tags/folder
-on the left, a full detail preview -- including description -- on the right),
-otherwise falls back to a plain numbered prompt. Use -sl to force the plain
-prompt regardless of whether fzf is installed.
+on the left, a markdown/archive presence badge, and a full detail preview --
+including description -- on the right), otherwise falls back to a plain
+numbered prompt. Use -sl to force the plain prompt regardless of whether fzf
+is installed. Either can be narrowed to specific fields with the n/u/t/d/f
+letters shown above.
 
 Config lives at $XDG_CONFIG_HOME/liber/config.json (created on first run).
 `)
