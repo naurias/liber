@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// CreateOptions holds the flags parsed from `liber <url> [flags]`.
+// bookmark <url> creation flags 
 type CreateOptions struct {
 	Interactive bool
 	Markdown    bool
