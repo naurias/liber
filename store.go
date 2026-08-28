@@ -28,7 +28,7 @@ type Bookmark struct {
 	ArchiveFile  string `json:"archive_file,omitempty"`
 }
 
-// Store is the full bookmark index, persisted as a single JSON file.
+// bookmark json index
 type Store struct {
 	NextID    int         `json:"next_id"`
 	Bookmarks []*Bookmark `json:"bookmarks"`
@@ -57,7 +57,6 @@ func LoadStore(path string) (*Store, error) {
 	return s, nil
 }
 
-// Save writes the index atomically (write to temp file, then rename).
 func (s *Store) Save() error {
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 		return err
@@ -99,9 +98,6 @@ func (s *Store) Delete(id int) bool {
 	return false
 }
 
-// SearchFields restricts which bookmark fields a search considers. A zero
-// value (all flags false) means "search everything" -- the historical,
-// default behavior of `liber -s` / `liber -sl`.
 type SearchFields struct {
 	Title       bool
 	URL         bool
@@ -110,13 +106,10 @@ type SearchFields struct {
 	Description bool
 }
 
-// Any reports whether at least one field is explicitly selected.
 func (f SearchFields) Any() bool {
 	return f.Title || f.URL || f.Tags || f.Folder || f.Description
 }
 
-// Label describes the active scope for prompts/headers, e.g.
-// "title \u00b7 folder", or the full default list when nothing is restricted.
 func (f SearchFields) Label() string {
 	if !f.Any() {
 		return "title \u00b7 url \u00b7 tags \u00b7 folder \u00b7 description"
@@ -140,9 +133,6 @@ func (f SearchFields) Label() string {
 	return strings.Join(parts, " \u00b7 ")
 }
 
-// Search does a case-insensitive substring match, scoped to the given
-// fields (or every field, if none are selected). An empty query returns
-// everything in the (possibly still field-scoped) set.
 func (s *Store) Search(query string, fields SearchFields) []*Bookmark {
 	query = strings.ToLower(strings.TrimSpace(query))
 	var results []*Bookmark
@@ -161,8 +151,6 @@ func (s *Store) All() []*Bookmark {
 	return out
 }
 
-// loadCfgAndStore is the common "load config, then load the index it points
-// at" pairing used by nearly every command.
 func loadCfgAndStore() (Config, *Store, error) {
 	cfg, _, err := LoadConfig()
 	if err != nil {

@@ -31,8 +31,7 @@ func expandTilde(p string) string {
 
 var slugInvalid = regexp.MustCompile(`[^a-z0-9]+`)
 
-// slugify converts a string into a filesystem-friendly, lowercase,
-// hyphen-separated slug. Returns "" if nothing usable remains.
+// string to filesystem path conversion 
 func slugify(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
 	s = slugInvalid.ReplaceAllString(s, "-")
@@ -43,9 +42,6 @@ func slugify(s string) string {
 	}
 	return s
 }
-
-// sanitizeFolder cleans a user-supplied folder path: forward slashes only,
-// no ".." traversal, no leading slash, no empty segments.
 func sanitizeFolder(f string) string {
 	f = strings.TrimSpace(f)
 	f = strings.ReplaceAll(f, "\\", "/")
@@ -61,8 +57,7 @@ func sanitizeFolder(f string) string {
 	return strings.Join(clean, "/")
 }
 
-// dedupe removes empty and duplicate entries (case-insensitive) while
-// preserving first-seen order.
+
 func dedupe(items []string) []string {
 	seen := map[string]bool{}
 	var out []string
@@ -90,8 +85,6 @@ func normalizeURL(u string) string {
 	return u
 }
 
-// moveFile relocates a file, creating the destination directory as needed.
-// It is a no-op (returns nil) if src doesn't exist or src == dst.
 func moveFile(src, dst string) error {
 	if src == dst {
 		return nil
@@ -105,7 +98,6 @@ func moveFile(src, dst string) error {
 	return os.Rename(src, dst)
 }
 
-// fileExists reports whether path exists and is readable via os.Stat.
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
