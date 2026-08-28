@@ -1,20 +1,3 @@
-// Command liber is a small, dependency-free CLI bookmark manager.
-//
-// Usage:
-//
-//	liber <url>                    save a bookmark
-//	liber <url> -i                 save interactively (prompts for description, tags, folder)
-//	liber <url> -md                also write a markdown copy
-//	liber <url> -a                 also write a full-page archive (via `single-file`)
-//	liber <url> -md -a             both of the above
-//	liber <url> -t tag-a tag-b     attach tags at creation time
-//	liber <url> -f subfold         save into a subfolder of the base directory
-//	liber -s                       search/browse bookmarks, open or edit them
-//	liber -l                       list all bookmarks with their ids
-//	liber -e <id>                  edit a bookmark interactively
-//	liber -e <id> -t tag-a tag-b   set a bookmark's tags directly
-//	liber -e <id> -f subfold       move a bookmark to a different folder
-//	liber config                   show the active config file and its path
 package main
 
 import (
@@ -24,8 +7,7 @@ import (
 	"strings"
 )
 
-// Version is overridden at build time via -ldflags "-X main.Version=x.y.z"
-// (see Makefile / flake.nix). Left as "dev" for plain `go build`.
+// use build flags or flake to override
 var Version = "dev"
 
 func main() {
@@ -78,8 +60,7 @@ func run(args []string) error {
 	case "-r", "--reindex":
 		return runReindex()
 	case "__preview":
-		// Internal: fzf's --preview callback (see fzf.go). Not documented
-		// in -h since it's not meant to be run by hand.
+		// Internal: fzf's --preview callback 
 		if len(args) < 2 {
 			return nil
 		}
@@ -104,18 +85,7 @@ func run(args []string) error {
 	return runCreate(args[0], opt)
 }
 
-// parseSearchFlag recognizes `-s`, `-sl`, and combinations like `-sn`,
-// `-sd`, `-st`, `-sf`, `-su`, `-sdf`, `-sld`, etc:
-//
-//	-s               search everything (fzf if available)
-//	-sl              same, but force the plain prompt (legacy)
-//	-s[nutdf]+       restrict search to specific field(s):
-//	                   n = title, u = url, t = tags, d = description, f = folder
-//	-sl[nutdf]+      same restriction, forced to the plain prompt
-//
-// Letters can appear in any order and combine freely. Returns ok=false for
-// anything that isn't one of these (so the caller can fall through to the
-// normal "unknown flag" / URL handling).
+// liber search flags
 func parseSearchFlag(flag string) (fields SearchFields, legacy bool, ok bool) {
 	switch flag {
 	case "--search":
@@ -191,6 +161,9 @@ func runConfigCmd(args []string) error {
 	fmt.Println("singlefile_cmd", cfg.SingleFileCmd)
 	if cfg.BrowserCmd != "" {
 		fmt.Println("browser_cmd   ", cfg.BrowserCmd)
+	}
+	if cfg.EditorCmd != "" {
+		fmt.Println("editor_cmd    ", cfg.EditorCmd)
 	}
 	fmt.Println("\nEdit the JSON file above to change these.")
 	return nil

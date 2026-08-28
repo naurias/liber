@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -27,10 +28,7 @@ func runSearch(fields SearchFields) error {
 	}
 	return runSearchPrompt(cfg, store, fields)
 }
-
-// runSearchLegacy skips the fzf check entirely, for `liber -sl` (and its
-// field-restricted variants like `-sld`) -- useful if you have fzf
-// installed but want the plain prompt anyway.
+// liber search in absence of fzf
 func runSearchLegacy(fields SearchFields) error {
 	cfg, store, err := loadCfgAndStore()
 	if err != nil {
@@ -43,11 +41,7 @@ func runSearchLegacy(fields SearchFields) error {
 	return runSearchPrompt(cfg, store, fields)
 }
 
-// runSearchFzf pipes the bookmark list to fzf for fuzzy selection, then
-// hands the pick off to the same open/edit/delete action menu used by the
-// plain-prompt path. It loops so edits/deletes are reflected next time the
-// picker opens. A genuine fzf failure (as opposed to the user cancelling)
-// is returned to the caller so it can fall back to the plain prompt.
+// fzf search
 func runSearchFzf(cfg Config, store *Store, fields SearchFields) error {
 	for {
 		all := store.All()
@@ -72,8 +66,7 @@ func runSearchFzf(cfg Config, store *Store, fields SearchFields) error {
 	}
 }
 
-// runSearchPrompt is the dependency-free fallback: type a query, get a
-// numbered list, type an id to act on it.
+// fallback search function (no fzf)
 func runSearchPrompt(cfg Config, store *Store, fields SearchFields) error {
 	label := fmt.Sprintf("Search %s (empty = all, 'q' to quit)", fields.Label())
 	for {
@@ -124,11 +117,37 @@ const (
 func actionMenu(cfg Config, store *Store, b *Bookmark) actionResult {
 	for {
 		fmt.Printf("\n[%d] %s\n    %s\n", b.ID, b.Title, b.URL)
-		choice := strings.ToLower(promptLine("(o)pen  (e)dit  (d)elete  (b)ack  (q)uit"))
+		opts := "(o)pen"
+		if b.MarkdownFile != "" {
+			opts += "  (m)arkdown"
+		}
+		if b.ArchiveFile != "" {
+			opts += "  (a)rchive"
+		}
+		opts += "  (e)dit  (d)elete  (b)ack  (q)uit"
+		choice := strings.ToLower(promptLine(opts))
 		switch choice {
 		case "o":
 			if err := openURL(cfg, b.URL); err != nil {
 				fmt.Println("Could not open browser:", err)
+			}
+		case "m":
+			if b.MarkdownFile == "" {
+				fmt.Println("No markdown copy saved for this bookmark.")
+				continue
+			}
+			path := filepath.Join(cfg.markdownDir(), b.MarkdownFile)
+			if err := openInEditor(cfg, path); err != nil {
+				fmt.Println("Could not open markdown file:", err)
+			}
+		case "a":
+			if b.ArchiveFile == "" {
+				fmt.Println("No archive saved for this bookmark.")
+				continue
+			}
+			path := filepath.Join(cfg.archiveDir(), b.ArchiveFile)
+			if err := openURL(cfg, path); err != nil {
+				fmt.Println("Could not open archive:", err)
 			}
 		case "e":
 			editBookmarkInteractive(cfg, b)

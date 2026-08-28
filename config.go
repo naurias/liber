@@ -7,24 +7,17 @@ import (
 	"path/filepath"
 )
 
-// Config holds liber's user-editable settings. Stored as JSON under the
-// standard user config directory (e.g. ~/.config/liber/config.json).
+// $XDG_CONFIG_HOME/ or ~/.config/liber
 type Config struct {
-	// BaseDir is the root of the bookmark collection. html/, markdown/,
-	// archive/ and the .liber index live under here unless overridden below.
 	BaseDir string `json:"base_dir"`
 
 	HTMLDir     string `json:"html_dir,omitempty"`
 	MarkdownDir string `json:"markdown_dir,omitempty"`
 	ArchiveDir  string `json:"archive_dir,omitempty"`
 
-	// SingleFileCmd is the executable used to produce full-page archives.
-	// See https://github.com/gildas-lormeau/single-file-cli
 	SingleFileCmd string `json:"singlefile_cmd,omitempty"`
-
-	// BrowserCmd overrides the command used to open URLs from `liber -s`.
-	// Leave empty to auto-detect (xdg-open / open / start).
 	BrowserCmd string `json:"browser_cmd,omitempty"`
+	EditorCmd string `json:"editor_cmd,omitempty"`
 }
 
 func configPath() (string, error) {

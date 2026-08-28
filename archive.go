@@ -14,9 +14,7 @@ import (
 	"time"
 )
 
-// runSingleFile shells out to the `single-file` CLI to save a fully
-// self-contained archive of a page. See:
-// https://github.com/gildas-lormeau/single-file-cli
+// single-file-cli 
 func runSingleFile(cmdName, url, outPath string) error {
 	if cmdName == "" {
 		cmdName = "single-file"
@@ -41,8 +39,7 @@ func runSingleFile(cmdName, url, outPath string) error {
 
 var titleRe = regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
 
-// fetchTitle makes a best-effort GET request and extracts <title>.
-// Returns "" on any failure — callers should fall back to the URL itself.
+// request and fetch bookmark title 
 func fetchTitle(rawURL string) string {
 	client := http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", rawURL, nil)
@@ -72,7 +69,7 @@ func fetchTitle(rawURL string) string {
 	return t
 }
 
-// openURL opens a URL in the system's default browser.
+// opening bookmarks (url)
 func openURL(cfg Config, url string) error {
 	if cfg.BrowserCmd != "" {
 		return exec.Command(cfg.BrowserCmd, url).Start()
@@ -85,4 +82,23 @@ func openURL(cfg Config, url string) error {
 	default:
 		return exec.Command("xdg-open", url).Start()
 	}
+}
+
+// opening markdown in $EDITOR or $VISUAL, fallback as url
+func openInEditor(cfg Config, path string) error {
+	editor := cfg.EditorCmd
+	if editor == "" {
+		editor = os.Getenv("VISUAL")
+	}
+	if editor == "" {
+		editor = os.Getenv("EDITOR")
+	}
+	if editor != "" {
+		cmd := exec.Command(editor, path)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	}
+	return openURL(cfg, path)
 }
