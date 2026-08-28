@@ -105,6 +105,14 @@ func moveFile(src, dst string) error {
 	return os.Rename(src, dst)
 }
 
+// displayFolder returns f, or "/" if it's the root (empty string).
+func displayFolder(f string) string {
+	if f == "" {
+		return "/"
+	}
+	return f
+}
+
 // fileExists reports whether path exists and is readable via os.Stat.
 func fileExists(path string) bool {
 	_, err := os.Stat(path)

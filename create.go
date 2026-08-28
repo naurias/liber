@@ -17,18 +17,22 @@ type CreateOptions struct {
 }
 
 func runCreate(rawURL string, opt CreateOptions) error {
-	cfg, _, err := LoadConfig()
+	cfg, store, err := loadCfgAndStore()
 	if err != nil {
-		return fmt.Errorf("loading config: %w", err)
-	}
-	store, err := LoadStore(cfg.indexPath())
-	if err != nil {
-		return fmt.Errorf("loading index: %w", err)
+		return err
 	}
 
 	url := normalizeURL(rawURL)
 	folder := sanitizeFolder(opt.Folder)
 	tags := append([]string{}, opt.Tags...)
+
+	if dup := findDuplicate(store, url); dup != nil {
+		fmt.Printf("This looks like it's already bookmarked: [%d] %s (folder: %s)\n", dup.ID, dup.Title, displayFolder(dup.Folder))
+		if !confirm("Add it anyway?", false) {
+			fmt.Println("Cancelled.")
+			return nil
+		}
+	}
 
 	fmt.Printf("Fetching title for %s ...\n", url)
 	title := fetchTitle(url)
@@ -47,47 +51,9 @@ func runCreate(rawURL string, opt CreateOptions) error {
 		title = url
 	}
 
-	b := &Bookmark{
-		URL:         url,
-		Title:       title,
-		Description: description,
-		Tags:        dedupe(tags),
-		Folder:      folder,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
-	}
-	store.Add(b) // assigns b.ID
-
-	base := fmt.Sprintf("%04d-%s", b.ID, slugOrFallback(title, b.ID))
-
-	htmlRel := filepath.Join(folder, base+".html")
-	if err := writeHTMLBookmark(filepath.Join(cfg.htmlDir(), htmlRel), b); err != nil {
-		return fmt.Errorf("writing html bookmark: %w", err)
-	}
-	b.HTMLFile = htmlRel
-
-	if opt.Markdown {
-		mdRel := filepath.Join(folder, base+".md")
-		if err := writeMarkdownBookmark(filepath.Join(cfg.markdownDir(), mdRel), b); err != nil {
-			return fmt.Errorf("writing markdown bookmark: %w", err)
-		}
-		b.MarkdownFile = mdRel
-	}
-
-	if opt.Archive {
-		archRel := filepath.Join(folder, base+".html")
-		archAbs := filepath.Join(cfg.archiveDir(), archRel)
-		fmt.Println("Archiving page with single-file ...")
-		if err := runSingleFile(cfg.SingleFileCmd, url, archAbs); err != nil {
-			fmt.Printf("warning: archive failed: %v\n", err)
-		} else {
-			b.ArchiveFile = archRel
-		}
-	}
-
-	// If markdown was written before the archive path was known, note it now.
-	if opt.Markdown && opt.Archive && b.ArchiveFile != "" {
-		_ = writeMarkdownBookmark(filepath.Join(cfg.markdownDir(), b.MarkdownFile), b)
+	b, err := addBookmarkToStore(cfg, store, url, title, description, tags, folder, opt.Markdown, opt.Archive)
+	if err != nil {
+		return err
 	}
 
 	if err := store.Save(); err != nil {
@@ -103,6 +69,58 @@ func runCreate(rawURL string, opt CreateOptions) error {
 		fmt.Printf("  archive:  %s\n", filepath.Join(cfg.archiveDir(), b.ArchiveFile))
 	}
 	return nil
+}
+
+// addBookmarkToStore assigns an id, writes the html file (and optionally a
+// markdown copy / archive), and appends the result to store. Shared by
+// `liber <url>` and `liber --import`, so both produce identical on-disk
+// records.
+func addBookmarkToStore(cfg Config, store *Store, url, title, description string, tags []string, folder string, addMarkdown, addArchive bool) (*Bookmark, error) {
+	b := &Bookmark{
+		URL:         url,
+		Title:       title,
+		Description: description,
+		Tags:        dedupe(tags),
+		Folder:      folder,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	store.Add(b) // assigns b.ID
+
+	base := fmt.Sprintf("%04d-%s", b.ID, slugOrFallback(title, b.ID))
+
+	htmlRel := filepath.Join(folder, base+".html")
+	if err := writeHTMLBookmark(filepath.Join(cfg.htmlDir(), htmlRel), b); err != nil {
+		return nil, fmt.Errorf("writing html bookmark: %w", err)
+	}
+	b.HTMLFile = htmlRel
+
+	if addMarkdown {
+		mdRel := filepath.Join(folder, base+".md")
+		if err := writeMarkdownBookmark(filepath.Join(cfg.markdownDir(), mdRel), b); err != nil {
+			fmt.Printf("warning: could not write markdown for %s: %v\n", url, err)
+		} else {
+			b.MarkdownFile = mdRel
+		}
+	}
+
+	if addArchive {
+		archRel := filepath.Join(folder, base+".html")
+		archAbs := filepath.Join(cfg.archiveDir(), archRel)
+		fmt.Printf("Archiving %s with single-file ...\n", url)
+		if err := runSingleFile(cfg.SingleFileCmd, url, archAbs); err != nil {
+			fmt.Printf("warning: archive failed for %s: %v\n", url, err)
+		} else {
+			b.ArchiveFile = archRel
+		}
+	}
+
+	// If markdown was written before the archive path was known, note it now.
+	if addMarkdown && addArchive && b.ArchiveFile != "" {
+		_ = writeMarkdownBookmark(filepath.Join(cfg.markdownDir(), b.MarkdownFile), b)
+	}
+
+	return b, nil
 }
 
 func slugOrFallback(title string, id int) string {

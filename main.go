@@ -16,6 +16,14 @@
 //	liber -e <id> -f subfold       move a bookmark to a different folder
 //	liber -e <id> -md              add a markdown copy if it's missing one
 //	liber -e <id> -a               add an archive if it's missing one
+//	liber --import <path> [-md] [-a]  import a browser bookmark export (Netscape format)
+//	liber --tags / --folders       list tags/folders with counts
+//	liber --tags rename <a> <b>    rename (or merge into) a tag everywhere
+//	liber --tags delete <tag>      remove a tag from every bookmark that has it
+//	liber --folders rename <a> <b> rename/merge a folder (and its subfolders) everywhere
+//	liber --folders delete <f>     move a folder's bookmarks back to the root
+//	liber --history                list bookmarks by most recently opened
+//	liber --sync [-p]              commit (and optionally push) the collection, if it's a jj/git repo
 //	liber config                   show the active config file and its path
 package main
 
@@ -79,6 +87,59 @@ func run(args []string) error {
 		return runDelete(id, args[2:])
 	case "-r", "--reindex":
 		return runReindex()
+	case "--history":
+		return runHistory()
+	case "--sync":
+		push, err := parseSyncFlags(args[1:])
+		if err != nil {
+			return err
+		}
+		return runSync(push)
+	case "--import":
+		if len(args) < 2 {
+			return fmt.Errorf("--import requires a path, e.g. liber --import bookmarks.html")
+		}
+		impOpt, err := parseImportFlags(args[2:])
+		if err != nil {
+			return err
+		}
+		return runImport(args[1], impOpt)
+	case "--tags":
+		if len(args) == 1 {
+			return runTagsList()
+		}
+		switch args[1] {
+		case "rename":
+			if len(args) != 4 {
+				return fmt.Errorf("usage: liber --tags rename <old> <new>")
+			}
+			return runTagsRename(args[2], args[3])
+		case "delete":
+			if len(args) != 3 {
+				return fmt.Errorf("usage: liber --tags delete <tag>")
+			}
+			return runTagsDelete(args[2])
+		default:
+			return fmt.Errorf("unknown --tags subcommand %q (expected rename or delete)", args[1])
+		}
+	case "--folders":
+		if len(args) == 1 {
+			return runFoldersList()
+		}
+		switch args[1] {
+		case "rename":
+			if len(args) != 4 {
+				return fmt.Errorf("usage: liber --folders rename <old> <new>")
+			}
+			return runFoldersRename(args[2], args[3])
+		case "delete":
+			if len(args) != 3 {
+				return fmt.Errorf("usage: liber --folders delete <folder>")
+			}
+			return runFoldersDelete(args[2])
+		default:
+			return fmt.Errorf("unknown --folders subcommand %q (expected rename or delete)", args[1])
+		}
 	case "__preview":
 		// Internal: fzf's --preview callback (see fzf.go). Not documented
 		// in -h since it's not meant to be run by hand.
@@ -231,6 +292,19 @@ Usage:
                                   outside liber (quarantining any surviving
                                   markdown/archive copy into <base_dir>/unindexed/),
                                   and renumber remaining ids to close gaps
+  liber --import <path>          import a browser bookmark export (Netscape HTML format)
+  liber --import <path> -md -a   same, also generating markdown/archives for each (slow)
+  liber --tags                   list all tags with counts
+  liber --tags rename <a> <b>    rename a tag everywhere (renaming onto an existing
+                                  tag merges into it -- no separate merge command)
+  liber --tags delete <tag>      remove a tag from every bookmark that has it
+  liber --folders                list all folders with counts
+  liber --folders rename <a> <b> rename a folder (and its subfolders) everywhere;
+                                  physically moves each bookmark's files
+  liber --folders delete <f>     move a folder's bookmarks back to the root
+  liber --history                list bookmarks by most recently opened (via -s's (o) action)
+  liber --sync                   commit the collection, if <base_dir> is inside a jj or git repo
+  liber --sync -p                same, then push
   liber config                   show the active config file and its path
   liber -v                       print the version
 
@@ -243,6 +317,10 @@ including description -- on the right), otherwise falls back to a plain
 numbered prompt. Use -sl to force the plain prompt regardless of whether fzf
 is installed. Either can be narrowed to specific fields with the n/u/t/d/f
 letters shown above.
+
+Adding a bookmark whose URL normalizes to one you already have (ignoring
+trailing slashes, tracking params, and default ports) asks before adding a
+duplicate; liber --import skips likely duplicates automatically instead.
 
 Config lives at $XDG_CONFIG_HOME/liber/config.json (created on first run).
 `)

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func runSearch(fields SearchFields) error {
@@ -138,6 +139,13 @@ func actionMenu(cfg Config, store *Store, b *Bookmark) actionResult {
 		case "o":
 			if err := openURL(cfg, b.URL); err != nil {
 				fmt.Println("Could not open browser:", err)
+			} else {
+				now := time.Now()
+				b.LastOpenedAt = &now
+				b.OpenCount++
+				if err := store.Save(); err != nil {
+					fmt.Println("Could not save index:", err)
+				}
 			}
 		case "m":
 			if b.MarkdownFile == "" {

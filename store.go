@@ -26,6 +26,12 @@ type Bookmark struct {
 	HTMLFile     string `json:"html_file,omitempty"`
 	MarkdownFile string `json:"markdown_file,omitempty"`
 	ArchiveFile  string `json:"archive_file,omitempty"`
+
+	// LastOpenedAt/OpenCount track uses of the (o) "open" action from
+	// `liber -s`/`-sl` -- i.e. actually visiting the live URL, not opening
+	// a saved markdown/archive copy. nil means never opened.
+	LastOpenedAt *time.Time `json:"last_opened_at,omitempty"`
+	OpenCount    int        `json:"open_count,omitempty"`
 }
 
 // Store is the full bookmark index, persisted as a single JSON file.

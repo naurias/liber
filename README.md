@@ -57,6 +57,15 @@ liber -e <id> -a               add an archive if it doesn't have one yet
 liber -d <id>                  delete a bookmark (asks for confirmation)
 liber -d <id> -y               delete without confirmation
 liber -r                       reindex: clean up + renumber (see "Reindexing" below)
+liber --import <path>          import a browser bookmark export (see "Import" below)
+liber --import <path> -md -a   same, also generating markdown/archives for each (slow)
+liber --tags / --folders       list tags/folders with counts (see "Tag and folder hygiene")
+liber --tags rename <a> <b>    rename a tag everywhere (merges if <b> already exists)
+liber --tags delete <tag>      remove a tag from every bookmark that has it
+liber --folders rename <a> <b> rename a folder (and its subfolders) everywhere
+liber --folders delete <f>     move a folder's bookmarks back to the root
+liber --history                list bookmarks by most recently opened (see "History")
+liber --sync / --sync -p       commit (and optionally push) if it's a jj/git repo (see "Sync")
 liber config                   show the active config file and its path
 liber -v                       print the version
 ```
@@ -218,6 +227,87 @@ SQLite is genuinely good at — ad-hoc queries across a large collection,
 multiple processes writing at once — that's a reasonable follow-up, just a
 bigger one (new storage layer, migration from the existing `index.json`).
 
+## Import
+
+`liber --import <path>` reads a browser bookmark export — Firefox, Chrome,
+and Safari all use the same Netscape Bookmark File Format (`Export
+Bookmarks...` / `Export Bookmarks to HTML...`). Folders in the export
+become folders in liber (nested folders become `Parent/Child`); Firefox's
+per-bookmark `TAGS` and description are picked up too. Each imported
+bookmark gets a normal html file, exactly as if you'd run `liber <url>` —
+pass `-md`/`-a` to also generate markdown/archives for every import, though
+for a large export that's slow (archiving in particular makes one
+`single-file` call per bookmark) and probably better done selectively
+afterward with `liber -e <id> -md`/`-a`.
+
+Anything that normalizes to a URL you already have is skipped automatically
+(no per-item prompt, unlike adding one bookmark at a time) — so re-running
+`--import` on a refreshed export from your browser won't pile up
+duplicates. Entries with no `HREF` are skipped too. Both counts are
+reported at the end.
+
+## Tag and folder hygiene
+
+```
+liber --tags                    list every tag with how many bookmarks use it
+liber --tags rename <old> <new> rename a tag everywhere
+liber --tags delete <tag>       remove a tag from every bookmark that has it
+
+liber --folders                    list every folder with how many bookmarks are in it
+liber --folders rename <old> <new> rename a folder (and its subfolders) everywhere
+liber --folders delete <folder>    move that folder's bookmarks back to the root
+```
+
+There's no separate "merge" command — renaming *onto* a name that already
+exists **is** the merge: if a bookmark already has both the old and new
+tag, the rename just drops the old one rather than creating a duplicate.
+The same idea applies to folders (renaming `work` to `personal` when
+`personal` already has bookmarks just combines them).
+
+Folder rename/delete affects subfolders too (`work/urgent` follows
+`work` when you rename or delete it) and physically moves the affected
+files, the same as editing a single bookmark's folder does. Tag
+rename/delete rewrites the affected html/markdown files in place so their
+content stays consistent with the index.
+
+## History
+
+Picking `(o)` in `liber -s`/`liber -sl` records when you opened a
+bookmark's live URL (not its markdown/archive copy — that's a different
+kind of interaction). `liber --history` lists everything you've opened,
+most recent first, with an open count. Nothing is recorded until the first
+time you use `(o)`.
+
+## Sync
+
+`liber --sync` looks for a `.jj` or `.git` directory at or above
+`base_dir` and, if it finds one, commits the current state of your
+collection there (`liber --sync -p` also pushes afterward). It never
+initializes a repo itself — if there isn't one, it tells you and stops,
+since creating one unasked would be a strange thing for a bookmark tool to
+do. If `base_dir` is nested inside a larger repo (e.g. a dotfiles
+checkout), it still finds the right root.
+
+This is deliberately minimal: one commit, optionally one push, nothing
+that manages branches/bookmarks(jj)/remotes for you. Since everything liber
+writes is flat files and JSON, git or jj sync was already going to work
+without this command — `--sync` just saves you the two-or-three manual
+commands. Note for jj users: jj's own concept also called "bookmarks" (its
+branch-like refs) is unrelated to liber's bookmarks — just a naming
+coincidence to be aware of if you ever script the two together.
+
+## Duplicate detection
+
+Adding a URL that normalizes to one you already have (case-insensitive
+scheme/host, default ports and a trailing slash stripped, common tracking
+parameters like `utm_*`/`fbclid`/`gclid` removed) shows you the existing
+entry and asks before adding a second one — defaulting to no. Path and
+query *values* are never touched, only stripped/lowercased where it's safe
+to, so this only ever catches URLs that are genuinely the same page, never
+ones that just look similar. `liber --import` uses the same check but skips
+silently instead of prompting, since bulk-importing isn't a good time to
+ask per-item.
+
 ## Design notes / limitations
 
 - Title fetching is a best-effort plain HTTP GET + `<title>` regex extraction
@@ -240,3 +330,12 @@ bigger one (new storage layer, migration from the existing `index.json`).
   default would force it into the visible columns too) rather than a
   deliberate difference — use `-sd`/`-sld` to search descriptions explicitly
   either way.
+- `liber --sync`'s git path is well-tested (init, first commit, no-op
+  "nothing to commit", push failure, and a nested-repo base_dir all behave
+  correctly). Its jj path is implemented against jj's documented commands
+  (`jj commit`, `jj git push`) but hasn't been run against a real jj repo —
+  sanity-check it before relying on it.
+- Import assumes a well-formed Netscape Bookmark File Format export (what
+  Firefox/Chrome/Safari actually produce) and parses it with a handful of
+  targeted regexes rather than a full HTML parser, to stay dependency-free —
+  a hand-edited or otherwise unusual export might not parse cleanly.
