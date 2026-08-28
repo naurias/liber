@@ -9,9 +9,7 @@ import (
 	"strings"
 )
 
-// Fixed tab-delimited field positions fed to fzf. Field 1 (id) is never
-// shown -- it exists purely so the preview callback and post-selection
-// parsing can look a bookmark up exactly, without guessing from text.
+// Tab-delimited field indices fed to fzf; see dev-docs.md#fzf-integration.
 const (
 	fldID          = 1
 	fldTitle       = 2
@@ -27,9 +25,6 @@ func fzfAvailable() bool {
 	return err == nil
 }
 
-// selfPath returns the path to use for fzf's --preview callback: the
-// currently running binary if resolvable, otherwise just "liber" (assumed
-// to be on PATH, same as how the user is invoking us right now).
 func selfPath() string {
 	p, err := os.Executable()
 	if err != nil {
@@ -38,16 +33,11 @@ func selfPath() string {
 	return p
 }
 
-// withNthFor computes fzf's --with-nth value for a given field scope.
-// --with-nth controls both what's displayed AND what's fuzzy-matched, so
-// restricting to (say) descriptions only narrows the search to that field
-// and shows only that field. The markdown/archive badge (field 7) is
-// always appended regardless of scope, since it's presence-at-a-glance
-// info rather than something you'd search by.
+// withNthFor computes --with-nth; see dev-docs.md#fzf-integration.
 func withNthFor(fields SearchFields) string {
 	var idxs []string
 	if !fields.Any() {
-		idxs = []string{"2", "3", "4", "5"} // title, url, tags, folder -- unchanged default
+		idxs = []string{"2", "3", "4", "5"}
 	} else {
 		if fields.Title {
 			idxs = append(idxs, "2")
@@ -65,13 +55,11 @@ func withNthFor(fields SearchFields) string {
 			idxs = append(idxs, "6")
 		}
 	}
-	idxs = append(idxs, "7") // badges always visible
+	idxs = append(idxs, "7")
 	return strings.Join(idxs, ",")
 }
 
-// sanitizeField collapses embedded newlines/whitespace (which would break
-// the one-record-per-line tab format) and truncates long text so a single
-// bookmark can never make the picker unusable.
+// sanitizeField collapses whitespace/newlines and truncates to maxLen.
 func sanitizeField(s string, maxLen int) string {
 	s = strings.Join(strings.Fields(s), " ")
 	if len(s) > maxLen {
@@ -80,15 +68,7 @@ func sanitizeField(s string, maxLen int) string {
 	return s
 }
 
-// pickWithFzf renders the bookmark list to fzf, scoped to the requested
-// fields (or the default title/url/tags/folder set if none are given),
-// plus an always-visible markdown/archive presence badge. A right-hand
-// preview pane -- rendered by shelling back into `liber __preview <id>` --
-// shows the full title, url, tags, folder, and description for whichever
-// row is highlighted.
-//
-// It returns ok=false (no error) if the user cancelled (Esc/Ctrl-C/no
-// match) rather than picking anything.
+// pickWithFzf renders bookmarks to fzf and returns the picked id; see dev-docs.md#fzf-integration.
 func pickWithFzf(list []*Bookmark, fields SearchFields) (id int, ok bool, err error) {
 	var buf bytes.Buffer
 	for _, b := range list {
@@ -130,6 +110,7 @@ func pickWithFzf(list []*Bookmark, fields SearchFields) (id int, ok bool, err er
 
 	previewCmd := fmt.Sprintf("%s __preview {%d}", shellQuote(selfPath()), fldID)
 
+	// NOTE: --delimiter must be the regex escape "\t", not a literal tab byte -- see dev-docs.md#fzf-integration.
 	cmd := exec.Command("fzf",
 		"--ansi",
 		"--delimiter=\\t",
@@ -151,15 +132,9 @@ func pickWithFzf(list []*Bookmark, fields SearchFields) (id int, ok bool, err er
 	if runErr != nil {
 		if exitErr, isExit := runErr.(*exec.ExitError); isExit {
 			switch exitErr.ExitCode() {
-			case 1, 130:
-				// 1 = no match, 130 = interrupted (Esc/Ctrl-C).
-				// Both mean "nothing picked" -- not a failure.
+			case 1, 130: // no match / interrupted -- not a failure
 				return 0, false, nil
 			default:
-				// Anything else (fzf's own exit code 2 covers things like
-				// no controlling terminal) is a genuine failure -- let the
-				// caller fall back to the plain prompt instead of going
-				// silent.
 				msg := strings.TrimSpace(stderr.String())
 				if msg == "" {
 					msg = fmt.Sprintf("exit code %d", exitErr.ExitCode())
@@ -174,8 +149,7 @@ func pickWithFzf(list []*Bookmark, fields SearchFields) (id int, ok bool, err er
 	if line == "" {
 		return 0, false, nil
 	}
-	// fzf's stdout is the original raw line (tab-delimited), regardless of
-	// --with-nth, so the first field is always the hidden id.
+	// fzf always returns the full raw line regardless of --with-nth.
 	parts := strings.SplitN(line, "\t", 2)
 	parsedID, convErr := strconv.Atoi(strings.TrimSpace(parts[0]))
 	if convErr != nil {
@@ -184,9 +158,6 @@ func pickWithFzf(list []*Bookmark, fields SearchFields) (id int, ok bool, err er
 	return parsedID, true, nil
 }
 
-// shellQuote wraps a path in single quotes for safe use inside the
-// --preview command string fzf hands to /bin/sh -c, escaping any embedded
-// single quote the POSIX way.
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

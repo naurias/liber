@@ -9,9 +9,7 @@ import (
 
 var stdinReader = bufio.NewReader(os.Stdin)
 
-// exitOnEOF stops the program cleanly when stdin is closed mid-prompt
-// (e.g. piped input ran out, or the terminal disconnected), instead of
-// letting callers loop forever on a ReadString that keeps returning "".
+// exitOnEOF stops the program cleanly when stdin closes mid-prompt.
 func exitOnEOF(err error) {
 	if err != nil {
 		fmt.Println("\n(no more input -- exiting)")

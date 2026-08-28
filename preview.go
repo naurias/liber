@@ -6,11 +6,7 @@ import (
 	"strings"
 )
 
-// runPreview prints a detailed, labeled view of one bookmark. It's not a
-// user-facing command -- fzf invokes `liber __preview <id>` per highlighted
-// row to fill its preview pane (see fzf.go). It never returns an error to
-// its caller: any problem just renders as a friendly placeholder, since a
-// failed preview shouldn't interrupt the picker.
+// runPreview is fzf's --preview callback (`liber __preview <id>`); see dev-docs.md#fzf-integration.
 func runPreview(id int) error {
 	cfg, store, err := loadCfgAndStore()
 	if err != nil {

@@ -71,10 +71,7 @@ func runCreate(rawURL string, opt CreateOptions) error {
 	return nil
 }
 
-// addBookmarkToStore assigns an id, writes the html file (and optionally a
-// markdown copy / archive), and appends the result to store. Shared by
-// `liber <url>` and `liber --import`, so both produce identical on-disk
-// records.
+// addBookmarkToStore writes html/markdown/archive; shared by create and import.
 func addBookmarkToStore(cfg Config, store *Store, url, title, description string, tags []string, folder string, addMarkdown, addArchive bool) (*Bookmark, error) {
 	b := &Bookmark{
 		URL:         url,

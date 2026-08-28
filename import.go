@@ -8,20 +8,7 @@ import (
 	"strings"
 )
 
-// The Netscape Bookmark File Format (what Firefox/Chrome/Safari all export
-// to) isn't real HTML -- browsers emit it as a fixed, predictable sequence
-// of a handful of tags, so a small regex-driven scan is enough; a full HTML
-// parser would be overkill and (being an external dependency) against the
-// project's zero-dependency design.
-//
-// Structure, in the order these tags appear:
-//
-//	<DT><H3 ...>Folder Name</H3>   -- names the NEXT <DL><p> that opens
-//	<DL><p>                        -- enters that folder (or the root, if
-//	                                   no <H3> preceded it yet)
-//	<DT><A HREF="..." TAGS="a,b">Title</A>
-//	<DD>Optional description line  -- Firefox-only, follows its <A>
-//	</DL>                          -- leaves the current folder
+// netscapeTagRe scans the Netscape Bookmark File Format; see dev-docs.md#import-format.
 var netscapeTagRe = regexp.MustCompile(`(?is)` +
 	`<DT>\s*<H3(?P<h3attrs>[^>]*)>(?P<foldername>.*?)</H3>` +
 	`|(?P<dlopen><DL>\s*<p>)` +
@@ -43,9 +30,7 @@ type importedEntry struct {
 	desc    string
 }
 
-// parseNetscapeBookmarks walks a browser bookmark export and returns every
-// link found, with its folder computed from the <H3>/<DL> nesting it
-// appeared under (joined with "/" -- e.g. "Work/Reference").
+// parseNetscapeBookmarks returns every link with its folder from <H3>/<DL> nesting.
 func parseNetscapeBookmarks(content string) []importedEntry {
 	matches := netscapeTagRe.FindAllStringSubmatchIndex(content, -1)
 	names := netscapeTagRe.SubexpNames()
@@ -112,8 +97,7 @@ func parseNetscapeBookmarks(content string) []importedEntry {
 	return entries
 }
 
-// importOptions are the flags accepted after the path in
-// `liber --import <path> [-md] [-a]`.
+// importOptions are the flags for `liber --import <path> [-md] [-a]`.
 type importOptions struct {
 	Markdown bool
 	Archive  bool

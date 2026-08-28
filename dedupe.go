@@ -5,21 +5,13 @@ import (
 	"strings"
 )
 
-// trackingParams are stripped when normalizing a URL for duplicate
-// comparison -- they change the URL string without changing what's
-// actually being bookmarked.
+// trackingParams are stripped for duplicate comparison; see dev-docs.md#duplicate-detection.
 var trackingParams = []string{
 	"utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
 	"fbclid", "gclid", "mc_cid", "mc_eid", "igshid", "ref",
 }
 
-// normalizeForDedupe produces a comparison key for duplicate detection.
-// It lowercases scheme and host (case-insensitive per the URL spec),
-// strips default ports, a trailing slash, tracking query parameters, and
-// the fragment. Path and remaining query VALUES are left exactly as-is
-// (they can be case-sensitive on the server), so this only ever collapses
-// URLs that are genuinely the same resource, never ones that merely look
-// similar.
+// normalizeForDedupe builds a comparison key; see dev-docs.md#duplicate-detection.
 func normalizeForDedupe(raw string) string {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || u.Host == "" {
@@ -45,8 +37,6 @@ func normalizeForDedupe(raw string) string {
 	return scheme + "://" + host + path + query
 }
 
-// findDuplicate returns an existing bookmark whose URL normalizes to the
-// same thing as url, or nil if there isn't one.
 func findDuplicate(store *Store, url string) *Bookmark {
 	target := normalizeForDedupe(url)
 	for _, b := range store.Bookmarks {

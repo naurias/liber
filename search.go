@@ -30,9 +30,7 @@ func runSearch(fields SearchFields) error {
 	return runSearchPrompt(cfg, store, fields)
 }
 
-// runSearchLegacy skips the fzf check entirely, for `liber -sl` (and its
-// field-restricted variants like `-sld`) -- useful if you have fzf
-// installed but want the plain prompt anyway.
+// runSearchLegacy skips the fzf check (used by `liber -sl` and its field-restricted variants).
 func runSearchLegacy(fields SearchFields) error {
 	cfg, store, err := loadCfgAndStore()
 	if err != nil {
@@ -45,11 +43,7 @@ func runSearchLegacy(fields SearchFields) error {
 	return runSearchPrompt(cfg, store, fields)
 }
 
-// runSearchFzf pipes the bookmark list to fzf for fuzzy selection, then
-// hands the pick off to the same open/edit/delete action menu used by the
-// plain-prompt path. It loops so edits/deletes are reflected next time the
-// picker opens. A genuine fzf failure (as opposed to the user cancelling)
-// is returned to the caller so it can fall back to the plain prompt.
+// runSearchFzf loops the fzf picker into the action menu until the user quits.
 func runSearchFzf(cfg Config, store *Store, fields SearchFields) error {
 	for {
 		all := store.All()
@@ -74,8 +68,7 @@ func runSearchFzf(cfg Config, store *Store, fields SearchFields) error {
 	}
 }
 
-// runSearchPrompt is the dependency-free fallback: type a query, get a
-// numbered list, type an id to act on it.
+// runSearchPrompt is the dependency-free fallback picker.
 func runSearchPrompt(cfg Config, store *Store, fields SearchFields) error {
 	label := fmt.Sprintf("Search %s (empty = all, 'q' to quit)", fields.Label())
 	for {
@@ -206,8 +199,7 @@ func printResults(list []*Bookmark) {
 	fmt.Println()
 }
 
-// badgeSuffix renders " [md]", " [arc]", " [md,arc]", or "" depending on
-// which of a bookmark's markdown/archive copies exist.
+// badgeSuffix renders " [md]", " [arc]", " [md,arc]", or "".
 func badgeSuffix(b *Bookmark) string {
 	var parts []string
 	if b.MarkdownFile != "" {

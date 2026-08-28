@@ -8,8 +8,7 @@ import (
 	"time"
 )
 
-// syncBookmarkFiles relocates the bookmark's on-disk files if its folder
-// changed, then rewrites their content to match the current struct fields.
+// syncBookmarkFiles moves files if the folder changed, then rewrites content to match b.
 func syncBookmarkFiles(cfg Config, b *Bookmark, folderChanged bool) {
 	if b.HTMLFile != "" {
 		rel := b.HTMLFile
@@ -62,20 +61,13 @@ func deleteBookmarkFiles(cfg Config, b *Bookmark) {
 	}
 }
 
-// sharedBase returns the id-slug basename (without extension) shared by a
-// bookmark's html/markdown/archive files, taken from its HTML file (always
-// present) rather than re-derived from the current title. That matters
-// because editing never re-slugs an existing bookmark's filename -- so a
-// markdown/archive copy added later must reuse the original basename to
-// stay lined up with the html file it belongs to.
+// sharedBase returns the id-slug basename shared across a bookmark's files; see dev-docs.md#data-model.
 func sharedBase(b *Bookmark) string {
 	base := filepath.Base(b.HTMLFile)
 	return strings.TrimSuffix(base, filepath.Ext(base))
 }
 
-// addMarkdownCopy generates a markdown copy for a bookmark that doesn't
-// have one yet, in its current folder. No-op (with a note) if it already
-// has one -- this only ever adds, never overwrites or regenerates.
+// addMarkdownCopy adds a markdown copy if missing; no-op if one already exists.
 func addMarkdownCopy(cfg Config, b *Bookmark) {
 	if b.MarkdownFile != "" {
 		fmt.Println("Already has a markdown copy -- skipping.")
@@ -90,9 +82,7 @@ func addMarkdownCopy(cfg Config, b *Bookmark) {
 	fmt.Println("Added markdown copy.")
 }
 
-// addArchiveCopy generates a full-page archive (via single-file) for a
-// bookmark that doesn't have one yet, in its current folder. No-op (with a
-// note) if it already has one.
+// addArchiveCopy adds an archive if missing; no-op if one already exists.
 func addArchiveCopy(cfg Config, b *Bookmark) {
 	if b.ArchiveFile != "" {
 		fmt.Println("Already has an archive -- skipping.")
@@ -108,10 +98,7 @@ func addArchiveCopy(cfg Config, b *Bookmark) {
 	fmt.Println("Added archive.")
 }
 
-// editBookmarkInteractive prompts for every field, pre-filled with current
-// values, then persists the changes to disk (caller still must Store.Save()).
-// If the bookmark is missing a markdown copy or archive, it also offers to
-// add one -- but never asks about (or touches) either if it already exists.
+// editBookmarkInteractive prompts for every field and offers to add missing markdown/archive.
 func editBookmarkInteractive(cfg Config, b *Bookmark) {
 	newTitle := promptDefault("Title", b.Title)
 	newDesc := promptDefault("Description", b.Description)
@@ -141,8 +128,7 @@ func editBookmarkInteractive(cfg Config, b *Bookmark) {
 	fmt.Println("Updated.")
 }
 
-// editFlags are the flags accepted by `liber -e <id> [-t ...] [-f folder]
-// [-md] [-a]` for scripted, non-interactive edits.
+// editFlags are the flags for `liber -e <id> [-t ...] [-f folder] [-md] [-a]`.
 type editFlags struct {
 	tagsSet     bool
 	tags        []string

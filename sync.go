@@ -8,9 +8,7 @@ import (
 	"time"
 )
 
-// findRepoRoot walks upward from startDir looking for a .jj or .git
-// directory, so `liber --sync` works whether base_dir itself is the repo
-// root or just a subdirectory of a larger repo (e.g. a dotfiles checkout).
+// findRepoRoot walks upward from startDir for a .jj or .git dir; see dev-docs.md#sync.
 func findRepoRoot(startDir string) (root string, isJJ bool, isGit bool) {
 	dir := startDir
 	for i := 0; i < 40; i++ {
@@ -41,11 +39,7 @@ func parseSyncFlags(args []string) (push bool, err error) {
 	return push, nil
 }
 
-// runSync commits the bookmark collection in whichever of jj/git it's
-// inside (searching upward from base_dir), and optionally pushes. It never
-// initializes a repo itself -- if there isn't one, it says so and stops,
-// since creating one unasked would be a surprising thing for a bookmark
-// tool to do.
+// runSync commits (and optionally pushes); see dev-docs.md#sync. Never inits a repo itself.
 func runSync(push bool) error {
 	cfg, _, err := LoadConfig()
 	if err != nil {
@@ -110,9 +104,7 @@ func runInDir(dir, name string, args ...string) error {
 	return nil
 }
 
-// runGitCommit treats git's "nothing to commit" exit as a normal, quiet
-// no-op rather than an error -- there's nothing wrong with syncing when
-// nothing changed. Returns whether a commit was actually made.
+// runGitCommit treats "nothing to commit" as a quiet no-op, not an error.
 func runGitCommit(dir, msg string) (committed bool, err error) {
 	cmd := exec.Command("git", "commit", "-m", msg)
 	cmd.Dir = dir

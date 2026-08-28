@@ -10,9 +10,7 @@ import (
 	"time"
 )
 
-// Bookmark is a single saved link and its metadata. Files on disk
-// (HTMLFile / MarkdownFile / ArchiveFile) are stored as paths relative to
-// their respective directory (cfg.htmlDir(), etc).
+// Bookmark is a single saved link and its metadata; see dev-docs.md#data-model.
 type Bookmark struct {
 	ID          int       `json:"id"`
 	URL         string    `json:"url"`
@@ -27,9 +25,7 @@ type Bookmark struct {
 	MarkdownFile string `json:"markdown_file,omitempty"`
 	ArchiveFile  string `json:"archive_file,omitempty"`
 
-	// LastOpenedAt/OpenCount track uses of the (o) "open" action from
-	// `liber -s`/`-sl` -- i.e. actually visiting the live URL, not opening
-	// a saved markdown/archive copy. nil means never opened.
+	// LastOpenedAt/OpenCount: see dev-docs.md#history.
 	LastOpenedAt *time.Time `json:"last_opened_at,omitempty"`
 	OpenCount    int        `json:"open_count,omitempty"`
 }
@@ -105,9 +101,7 @@ func (s *Store) Delete(id int) bool {
 	return false
 }
 
-// SearchFields restricts which bookmark fields a search considers. A zero
-// value (all flags false) means "search everything" -- the historical,
-// default behavior of `liber -s` / `liber -sl`.
+// SearchFields restricts which fields a search considers; see dev-docs.md#search-scoping.
 type SearchFields struct {
 	Title       bool
 	URL         bool
@@ -121,8 +115,7 @@ func (f SearchFields) Any() bool {
 	return f.Title || f.URL || f.Tags || f.Folder || f.Description
 }
 
-// Label describes the active scope for prompts/headers, e.g.
-// "title \u00b7 folder", or the full default list when nothing is restricted.
+// Label describes the active scope for prompts/headers.
 func (f SearchFields) Label() string {
 	if !f.Any() {
 		return "title \u00b7 url \u00b7 tags \u00b7 folder \u00b7 description"
@@ -146,9 +139,7 @@ func (f SearchFields) Label() string {
 	return strings.Join(parts, " \u00b7 ")
 }
 
-// Search does a case-insensitive substring match, scoped to the given
-// fields (or every field, if none are selected). An empty query returns
-// everything in the (possibly still field-scoped) set.
+// Search does a case-insensitive substring match, scoped to fields (or everything, if none selected).
 func (s *Store) Search(query string, fields SearchFields) []*Bookmark {
 	query = strings.ToLower(strings.TrimSpace(query))
 	var results []*Bookmark
@@ -167,8 +158,7 @@ func (s *Store) All() []*Bookmark {
 	return out
 }
 
-// loadCfgAndStore is the common "load config, then load the index it points
-// at" pairing used by nearly every command.
+// loadCfgAndStore loads config then the index it points at.
 func loadCfgAndStore() (Config, *Store, error) {
 	cfg, _, err := LoadConfig()
 	if err != nil {

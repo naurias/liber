@@ -1,30 +1,4 @@
-// Command liber is a small, dependency-free CLI bookmark manager.
-//
-// Usage:
-//
-//	liber <url>                    save a bookmark
-//	liber <url> -i                 save interactively (prompts for description, tags, folder)
-//	liber <url> -md                also write a markdown copy
-//	liber <url> -a                 also write a full-page archive (via `single-file`)
-//	liber <url> -md -a             both of the above
-//	liber <url> -t tag-a tag-b     attach tags at creation time
-//	liber <url> -f subfold         save into a subfolder of the base directory
-//	liber -s                       search/browse bookmarks, open or edit them
-//	liber -l                       list all bookmarks with their ids
-//	liber -e <id>                  edit a bookmark interactively
-//	liber -e <id> -t tag-a tag-b   set a bookmark's tags directly
-//	liber -e <id> -f subfold       move a bookmark to a different folder
-//	liber -e <id> -md              add a markdown copy if it's missing one
-//	liber -e <id> -a               add an archive if it's missing one
-//	liber --import <path> [-md] [-a]  import a browser bookmark export (Netscape format)
-//	liber --tags / --folders       list tags/folders with counts
-//	liber --tags rename <a> <b>    rename (or merge into) a tag everywhere
-//	liber --tags delete <tag>      remove a tag from every bookmark that has it
-//	liber --folders rename <a> <b> rename/merge a folder (and its subfolders) everywhere
-//	liber --folders delete <f>     move a folder's bookmarks back to the root
-//	liber --history                list bookmarks by most recently opened
-//	liber --sync [-p]              commit (and optionally push) the collection, if it's a jj/git repo
-//	liber config                   show the active config file and its path
+// Command liber is a small, dependency-free CLI bookmark manager; run `liber -h` for usage.
 package main
 
 import (
@@ -34,8 +8,7 @@ import (
 	"strings"
 )
 
-// Version is overridden at build time via -ldflags "-X main.Version=x.y.z"
-// (see Makefile / flake.nix). Left as "dev" for plain `go build`.
+// Version is overridden via -ldflags "-X main.Version=x.y.z" (see Makefile/flake.nix).
 var Version = "dev"
 
 func main() {
@@ -140,9 +113,7 @@ func run(args []string) error {
 		default:
 			return fmt.Errorf("unknown --folders subcommand %q (expected rename or delete)", args[1])
 		}
-	case "__preview":
-		// Internal: fzf's --preview callback (see fzf.go). Not documented
-		// in -h since it's not meant to be run by hand.
+	case "__preview": // internal fzf --preview callback; not in -h on purpose
 		if len(args) < 2 {
 			return nil
 		}
@@ -159,7 +130,6 @@ func run(args []string) error {
 		return fmt.Errorf("unknown flag %q (expected a URL first, or -s/-sl/-l/-e/-d/-r/-v/-h)", args[0])
 	}
 
-	// args[0] is the URL to bookmark.
 	opt, err := parseCreateFlags(args[1:])
 	if err != nil {
 		return err
@@ -167,18 +137,7 @@ func run(args []string) error {
 	return runCreate(args[0], opt)
 }
 
-// parseSearchFlag recognizes `-s`, `-sl`, and combinations like `-sn`,
-// `-sd`, `-st`, `-sf`, `-su`, `-sdf`, `-sld`, etc:
-//
-//	-s               search everything (fzf if available)
-//	-sl              same, but force the plain prompt (legacy)
-//	-s[nutdf]+       restrict search to specific field(s):
-//	                   n = title, u = url, t = tags, d = description, f = folder
-//	-sl[nutdf]+      same restriction, forced to the plain prompt
-//
-// Letters can appear in any order and combine freely. Returns ok=false for
-// anything that isn't one of these (so the caller can fall through to the
-// normal "unknown flag" / URL handling).
+// parseSearchFlag parses -s/-sl and field-restriction combos; see dev-docs.md#search-scoping.
 func parseSearchFlag(flag string) (fields SearchFields, legacy bool, ok bool) {
 	switch flag {
 	case "--search":

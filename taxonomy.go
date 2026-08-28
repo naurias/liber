@@ -7,8 +7,7 @@ import (
 	"time"
 )
 
-// indexOfFold returns the index of the first entry matching target
-// case-insensitively, or -1.
+// indexOfFold returns the index of the first case-insensitive match, or -1.
 func indexOfFold(list []string, target string) int {
 	for i, s := range list {
 		if strings.EqualFold(s, target) {
@@ -18,8 +17,7 @@ func indexOfFold(list []string, target string) int {
 	return -1
 }
 
-// printCounts renders a sorted (most-used first, then alphabetical) label:
-// count listing -- shared by --tags and --folders with no subcommand.
+// printCounts renders a sorted label:count listing, shared by --tags/--folders.
 func printCounts(counts map[string]int, emptyMsg string) {
 	if len(counts) == 0 {
 		fmt.Println(emptyMsg)
@@ -61,10 +59,7 @@ func runTagsList() error {
 	return nil
 }
 
-// runTagsRename renames a tag on every bookmark that has it. If a bookmark
-// already has the new tag too, the rename just merges into it (dedupe drops
-// the would-be duplicate) rather than erroring -- that's how "merge" is
-// expressed here: rename an existing tag to another existing one.
+// runTagsRename renames (or merges into, if newTag exists) a tag everywhere.
 func runTagsRename(old, newTag string) error {
 	old = strings.TrimSpace(old)
 	newTag = strings.TrimSpace(newTag)
@@ -89,7 +84,7 @@ func runTagsRename(old, newTag string) error {
 		b.Tags = append(append([]string{}, b.Tags[:idx]...), b.Tags[idx+1:]...)
 		b.Tags = dedupe(append(b.Tags, newTag))
 		b.UpdatedAt = time.Now()
-		syncBookmarkFiles(cfg, b, false) // rewrite html/md in place to reflect the new tag text
+		syncBookmarkFiles(cfg, b, false) // rewrite html/md to reflect the new tag
 		changed++
 	}
 	if changed == 0 {
@@ -149,15 +144,12 @@ func runFoldersList() error {
 	return nil
 }
 
-// folderMatchesOrIsChild reports whether folder is exactly target, or a
-// subfolder of it (e.g. "work/urgent" is a child of "work").
+// folderMatchesOrIsChild reports whether folder is target or a subfolder of it.
 func folderMatchesOrIsChild(folder, target string) bool {
 	return folder == target || strings.HasPrefix(folder, target+"/")
 }
 
-// renameFolderPrefix rewrites the target-prefix portion of folder, leaving
-// any subfolder suffix intact -- e.g. renaming "work"->"job" turns
-// "work/urgent" into "job/urgent".
+// renameFolderPrefix rewrites folder's target-prefix, keeping any subfolder suffix.
 func renameFolderPrefix(folder, oldPrefix, newPrefix string) string {
 	if folder == oldPrefix {
 		return newPrefix
@@ -165,11 +157,7 @@ func renameFolderPrefix(folder, oldPrefix, newPrefix string) string {
 	return newPrefix + folder[len(oldPrefix):]
 }
 
-// runFoldersRename moves every bookmark in oldFolder (and its subfolders)
-// to newFolder, physically relocating their html/markdown/archive files.
-// Renaming to a folder that already has bookmarks in it is how folders are
-// "merged" here -- there's no separate merge command, since a folder is
-// just a shared string, not a distinct object to merge.
+// runFoldersRename renames (or merges into, if newFolder exists) a folder everywhere.
 func runFoldersRename(old, newFolder string) error {
 	old = sanitizeFolder(old)
 	newFolder = sanitizeFolder(newFolder)
@@ -206,9 +194,7 @@ func runFoldersRename(old, newFolder string) error {
 	return nil
 }
 
-// runFoldersDelete un-sets a folder, moving its bookmarks (and any
-// subfolders') back to the root -- it never deletes the bookmarks
-// themselves, just their folder classification.
+// runFoldersDelete moves a folder's bookmarks back to root; never deletes bookmarks.
 func runFoldersDelete(folder string) error {
 	return runFoldersRename(folder, "")
 }
