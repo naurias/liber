@@ -8,6 +8,33 @@ import (
 	"strings"
 )
 
+// runReindex reconciles the JSON index against the filesystem. It exists
+// for the case where bookmark files were deleted (or moved) outside of
+// liber -- e.g. `rm` from a file manager -- leaving index.json stale. It
+// also closes any id gaps left behind by deletions, e.g. 1,2,4 -> 1,2,3.
+//
+// For each indexed bookmark:
+//   - if its HTML file still exists, it's kept. Any Markdown/Archive path
+//     it points to that no longer exists is simply cleared (nothing to move,
+//     since it was already fully deleted).
+//   - if its HTML file is gone, the bookmark is dropped from the index, and
+//     any Markdown/Archive file it still points to is relocated -- not
+//     deleted -- into <base_dir>/unindexed/{markdown,archive}/<same path>,
+//     so an orphaned copy of an accidentally-deleted bookmark is never
+//     silently destroyed.
+//
+// Every move above uses the exact relative path already recorded on that
+// specific bookmark (set once at creation and kept in sync by edits) --
+// never a filename-prefix or glob match across bookmarks. That's what
+// guarantees a stray 0002 markdown file can never be paired with, or moved
+// alongside, some other id's archive file: each record only ever touches
+// its own recorded paths.
+//
+// Finally, surviving bookmarks are renumbered to close any gaps (their ids
+// are reassigned sequentially in their current id order), and their
+// html/markdown/archive files are renamed to match -- via a two-phase
+// stage-then-commit move so a shifting id can never collide with a file
+// that hasn't been moved out of the way yet.
 func runReindex() error {
 	cfg, store, err := loadCfgAndStore()
 	if err != nil {
@@ -27,6 +54,9 @@ func runReindex() error {
 		}
 
 		if htmlAbs != "" && fileExists(htmlAbs) {
+			// Still a live, indexed bookmark. Just drop stale references
+			// to md/archive copies that no longer exist -- there's
+			// nothing to relocate, they're already gone.
 			if b.MarkdownFile != "" && !fileExists(filepath.Join(cfg.markdownDir(), b.MarkdownFile)) {
 				b.MarkdownFile = ""
 			}
@@ -37,6 +67,9 @@ func runReindex() error {
 			continue
 		}
 
+		// The bookmark's html was deleted outside liber: drop the index
+		// entry, quarantining any surviving md/archive copy by its own
+		// recorded path.
 		removed++
 		if b.MarkdownFile != "" {
 			src := filepath.Join(cfg.markdownDir(), b.MarkdownFile)
@@ -99,6 +132,9 @@ func entrySuffix(n int) string {
 	return "ies"
 }
 
+// bookmarkFileField abstracts over the three file kinds a bookmark can have
+// so compactIDs can loop over them instead of repeating the same logic
+// three times.
 type bookmarkFileField struct {
 	label string
 	dir   func(Config) string
@@ -112,6 +148,14 @@ var bookmarkFileFields = []bookmarkFileField{
 	{"archive", Config.archiveDir, func(b *Bookmark) string { return b.ArchiveFile }, func(b *Bookmark, s string) { b.ArchiveFile = s }},
 }
 
+// compactIDs reassigns sequential ids (1..N) to kept, in their current id
+// order, closing any gaps left by deletions. Renames happen in two phases:
+// every affected file is first moved into a staging directory, and only
+// once every bookmark's files have been staged are they moved to their
+// final, renumbered names. Staging first means a bookmark being renumbered
+// to id 3 can never collide with another bookmark that hasn't been moved
+// off id 3 yet -- there's no ordering to get right, because nothing lands
+// on its final name until every source file has already been moved aside.
 func compactIDs(cfg Config, kept []*Bookmark) ([]string, error) {
 	sort.Slice(kept, func(i, j int) bool { return kept[i].ID < kept[j].ID })
 

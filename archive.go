@@ -14,7 +14,9 @@ import (
 	"time"
 )
 
-// single-file-cli 
+// runSingleFile shells out to the `single-file` CLI to save a fully
+// self-contained archive of a page. See:
+// https://github.com/gildas-lormeau/single-file-cli
 func runSingleFile(cmdName, url, outPath string) error {
 	if cmdName == "" {
 		cmdName = "single-file"
@@ -39,7 +41,8 @@ func runSingleFile(cmdName, url, outPath string) error {
 
 var titleRe = regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
 
-// request and fetch bookmark title 
+// fetchTitle makes a best-effort GET request and extracts <title>.
+// Returns "" on any failure — callers should fall back to the URL itself.
 func fetchTitle(rawURL string) string {
 	client := http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", rawURL, nil)
@@ -69,7 +72,9 @@ func fetchTitle(rawURL string) string {
 	return t
 }
 
-// opening bookmarks (url)
+// openURL opens a URL (or a local file path -- xdg-open/open handle both)
+// in the system's default browser/handler. Fired and forgotten: suitable
+// for GUI apps, not for anything that needs the current terminal.
 func openURL(cfg Config, url string) error {
 	if cfg.BrowserCmd != "" {
 		return exec.Command(cfg.BrowserCmd, url).Start()
@@ -84,7 +89,12 @@ func openURL(cfg Config, url string) error {
 	}
 }
 
-// opening markdown in $EDITOR or $VISUAL, fallback as url
+// openInEditor opens a file in the user's preferred text editor: the
+// config's editor_cmd if set, then $VISUAL, then $EDITOR, then finally
+// falling back to the OS's default file association via openURL. Unlike
+// openURL, an explicit editor is run synchronously with its stdio wired to
+// the current terminal, since it may well be a terminal editor (vim, nano,
+// emacs) that needs to take over the screen.
 func openInEditor(cfg Config, path string) error {
 	editor := cfg.EditorCmd
 	if editor == "" {
@@ -100,5 +110,7 @@ func openInEditor(cfg Config, path string) error {
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
 	}
+	// No editor configured/set -- fall back to whatever the OS has
+	// associated with this file type (may or may not be a text editor).
 	return openURL(cfg, path)
 }

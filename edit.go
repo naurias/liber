@@ -62,8 +62,56 @@ func deleteBookmarkFiles(cfg Config, b *Bookmark) {
 	}
 }
 
+// sharedBase returns the id-slug basename (without extension) shared by a
+// bookmark's html/markdown/archive files, taken from its HTML file (always
+// present) rather than re-derived from the current title. That matters
+// because editing never re-slugs an existing bookmark's filename -- so a
+// markdown/archive copy added later must reuse the original basename to
+// stay lined up with the html file it belongs to.
+func sharedBase(b *Bookmark) string {
+	base := filepath.Base(b.HTMLFile)
+	return strings.TrimSuffix(base, filepath.Ext(base))
+}
+
+// addMarkdownCopy generates a markdown copy for a bookmark that doesn't
+// have one yet, in its current folder. No-op (with a note) if it already
+// has one -- this only ever adds, never overwrites or regenerates.
+func addMarkdownCopy(cfg Config, b *Bookmark) {
+	if b.MarkdownFile != "" {
+		fmt.Println("Already has a markdown copy -- skipping.")
+		return
+	}
+	rel := filepath.Join(b.Folder, sharedBase(b)+".md")
+	if err := writeMarkdownBookmark(filepath.Join(cfg.markdownDir(), rel), b); err != nil {
+		fmt.Printf("warning: could not write markdown copy: %v\n", err)
+		return
+	}
+	b.MarkdownFile = rel
+	fmt.Println("Added markdown copy.")
+}
+
+// addArchiveCopy generates a full-page archive (via single-file) for a
+// bookmark that doesn't have one yet, in its current folder. No-op (with a
+// note) if it already has one.
+func addArchiveCopy(cfg Config, b *Bookmark) {
+	if b.ArchiveFile != "" {
+		fmt.Println("Already has an archive -- skipping.")
+		return
+	}
+	rel := filepath.Join(b.Folder, sharedBase(b)+".html")
+	fmt.Println("Archiving page with single-file ...")
+	if err := runSingleFile(cfg.SingleFileCmd, b.URL, filepath.Join(cfg.archiveDir(), rel)); err != nil {
+		fmt.Printf("warning: archive failed: %v\n", err)
+		return
+	}
+	b.ArchiveFile = rel
+	fmt.Println("Added archive.")
+}
+
 // editBookmarkInteractive prompts for every field, pre-filled with current
 // values, then persists the changes to disk (caller still must Store.Save()).
+// If the bookmark is missing a markdown copy or archive, it also offers to
+// add one -- but never asks about (or touches) either if it already exists.
 func editBookmarkInteractive(cfg Config, b *Bookmark) {
 	newTitle := promptDefault("Title", b.Title)
 	newDesc := promptDefault("Description", b.Description)
@@ -82,16 +130,26 @@ func editBookmarkInteractive(cfg Config, b *Bookmark) {
 	b.UpdatedAt = time.Now()
 
 	syncBookmarkFiles(cfg, b, folderChanged)
+
+	if b.MarkdownFile == "" && confirm("Add a markdown copy?", false) {
+		addMarkdownCopy(cfg, b)
+	}
+	if b.ArchiveFile == "" && confirm("Add an archive copy?", false) {
+		addArchiveCopy(cfg, b)
+	}
+
 	fmt.Println("Updated.")
 }
 
-// editFlags are the flags accepted by `liber -e <id> [-t ...] [-f folder]`
-// for scripted, non-interactive edits.
+// editFlags are the flags accepted by `liber -e <id> [-t ...] [-f folder]
+// [-md] [-a]` for scripted, non-interactive edits.
 type editFlags struct {
-	tagsSet   bool
-	tags      []string
-	folderSet bool
-	folder    string
+	tagsSet     bool
+	tags        []string
+	folderSet   bool
+	folder      string
+	addMarkdown bool
+	addArchive  bool
 }
 
 func parseEditFlags(args []string) (editFlags, error) {
@@ -113,6 +171,10 @@ func parseEditFlags(args []string) (editFlags, error) {
 			ef.folderSet = true
 			ef.folder = args[i+1]
 			i++
+		case "-md", "--markdown":
+			ef.addMarkdown = true
+		case "-a", "--archive":
+			ef.addArchive = true
 		default:
 			return ef, fmt.Errorf("unknown flag for -e: %s", args[i])
 		}
@@ -148,6 +210,14 @@ func runEdit(id int, rest []string) error {
 		}
 		b.UpdatedAt = time.Now()
 		syncBookmarkFiles(cfg, b, folderChanged)
+
+		if ef.addMarkdown {
+			addMarkdownCopy(cfg, b)
+		}
+		if ef.addArchive {
+			addArchiveCopy(cfg, b)
+		}
+
 		fmt.Printf("Updated [%d] %s\n", b.ID, b.Title)
 	}
 

@@ -28,7 +28,10 @@ func runSearch(fields SearchFields) error {
 	}
 	return runSearchPrompt(cfg, store, fields)
 }
-// liber search in absence of fzf
+
+// runSearchLegacy skips the fzf check entirely, for `liber -sl` (and its
+// field-restricted variants like `-sld`) -- useful if you have fzf
+// installed but want the plain prompt anyway.
 func runSearchLegacy(fields SearchFields) error {
 	cfg, store, err := loadCfgAndStore()
 	if err != nil {
@@ -41,7 +44,11 @@ func runSearchLegacy(fields SearchFields) error {
 	return runSearchPrompt(cfg, store, fields)
 }
 
-// fzf search
+// runSearchFzf pipes the bookmark list to fzf for fuzzy selection, then
+// hands the pick off to the same open/edit/delete action menu used by the
+// plain-prompt path. It loops so edits/deletes are reflected next time the
+// picker opens. A genuine fzf failure (as opposed to the user cancelling)
+// is returned to the caller so it can fall back to the plain prompt.
 func runSearchFzf(cfg Config, store *Store, fields SearchFields) error {
 	for {
 		all := store.All()
@@ -66,7 +73,8 @@ func runSearchFzf(cfg Config, store *Store, fields SearchFields) error {
 	}
 }
 
-// fallback search function (no fzf)
+// runSearchPrompt is the dependency-free fallback: type a query, get a
+// numbered list, type an id to act on it.
 func runSearchPrompt(cfg Config, store *Store, fields SearchFields) error {
 	label := fmt.Sprintf("Search %s (empty = all, 'q' to quit)", fields.Label())
 	for {
