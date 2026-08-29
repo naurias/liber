@@ -69,6 +69,10 @@ liber --tags delete <tag>      remove a tag from every bookmark that has it
 liber --folders rename <a> <b> rename a folder (and its subfolders) everywhere
 liber --folders delete <f>     move a folder's bookmarks back to the root
 liber --history                list bookmarks by most recently opened (see "History")
+liber --auto add --match <s> --folder <f> --tag <t1 t2>
+                                auto-classify new bookmarks by URL (see "Automation")
+liber --auto / --auto edit / --auto delete / --auto apply
+                                list/edit/delete/re-run automations (see "Automation")
 liber --sync / --sync -p       commit (and optionally push) if it's a jj/git repo (see "Sync")
 liber config                   show the active config file and its path
 liber -v                       print the version
@@ -312,6 +316,55 @@ kind of interaction). `liber --history` lists everything you've opened,
 most recent first, with an open count. Nothing is recorded until the first
 time you use `(o)`.
 
+## Automation
+
+Auto-classify bookmarks whose URL contains a given string — the example
+that motivated this: everything from `doxy.com` should always land in a
+`hot` folder.
+
+```
+liber --auto add --match doxy --folder hot
+liber --auto add --match doxy --folder hot --tag important urgent
+liber --auto                                  list automations, with how many bookmarks each has classified
+liber --auto edit <id> --folder other-folder  change what a rule does
+liber --auto edit <id> --folder x --reapply   change it AND re-sync bookmarks it already classified
+liber --auto delete <id>                      remove a rule (doesn't undo what it already did)
+liber --auto apply                            re-run every rule against existing bookmarks
+liber --auto apply <id>                       re-run just one
+```
+
+A rule can set a folder, add tag(s), or both. The match is a plain,
+case-insensitive substring check against the full URL — `doxy` matches
+`https://doxy.com/anything` without needing to special-case the scheme or
+TLD.
+
+**Automation never overrides an explicit choice, and never re-opens a
+decision it's already made.** Concretely:
+
+- Creating a bookmark with `-f somefolder` (or importing one that already
+  has a folder from your browser) always wins — a folder rule only ever
+  fills in an *empty* folder. Tags still get added either way, since tags
+  are additive rather than exclusive.
+- Adding a new rule immediately applies it to any existing bookmarks that
+  match (this is the "recursive" part — bookmarks created before the rule
+  existed still get classified), but only bookmarks that don't already
+  have a folder. Anything already organized — by hand or by another rule
+  — is left alone.
+- **Once a bookmark has been classified (automatically or manually) and
+  you later move it yourself, that move sticks.** Automation tracks which
+  rules have already had their one chance at each bookmark, so re-running
+  `--auto apply` — or adding an unrelated new rule — never revisits a
+  decision that's already been made, including ones automation itself
+  made earlier.
+- Editing a rule updates its definition for future bookmarks; it does
+  *not* retroactively touch bookmarks it already classified unless you
+  add `--reapply`. Even then, `--reapply` only advances a bookmark to the
+  rule's new value if the bookmark's current folder still exactly matches
+  what that same rule set it to last time — if you've moved it since,
+  `--reapply` leaves it alone too.
+- Deleting a rule removes the rule only; bookmarks it already classified
+  keep their folder/tags exactly as they are.
+
 ## Sync
 
 `liber --sync` looks for a `.jj` or `.git` directory at or above
@@ -373,3 +426,9 @@ ask per-item.
   Firefox/Chrome/Safari actually produce) and parses it with a handful of
   targeted regexes rather than a full HTML parser, to stay dependency-free —
   a hand-edited or otherwise unusual export might not parse cleanly.
+- If two folder automations could both match the same never-yet-classified
+  bookmark, whichever was created first wins the folder; the second is
+  still recorded as "seen" (so it won't retry later) even though its
+  folder action didn't take effect. There's no priority system beyond
+  creation order — a deliberate scope cut for an edge case that's unlikely
+  to come up in practice.
