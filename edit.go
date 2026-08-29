@@ -168,43 +168,64 @@ func parseEditFlags(args []string) (editFlags, error) {
 	return ef, nil
 }
 
-func runEdit(id int, rest []string) error {
+func runEdit(ids []int, rest []string) error {
 	cfg, store, err := loadCfgAndStore()
 	if err != nil {
 		return err
 	}
-	b := store.Find(id)
-	if b == nil {
-		return fmt.Errorf("no bookmark with id %d (see `liber -l`)", id)
+
+	var targets []*Bookmark
+	var missing []int
+	for _, id := range ids {
+		b := store.Find(id)
+		if b == nil {
+			missing = append(missing, id)
+			continue
+		}
+		targets = append(targets, b)
+	}
+	if len(targets) == 0 {
+		return fmt.Errorf("no matching bookmarks found (see `liber -l`)")
 	}
 
 	if len(rest) == 0 {
-		editBookmarkInteractive(cfg, b)
+		for i, b := range targets {
+			if len(targets) > 1 {
+				fmt.Printf("\n--- Editing %d of %d: [%d] %s ---\n", i+1, len(targets), b.ID, b.Title)
+			}
+			editBookmarkInteractive(cfg, b)
+		}
 	} else {
 		ef, err := parseEditFlags(rest)
 		if err != nil {
 			return err
 		}
-		folderChanged := false
-		if ef.tagsSet {
-			b.Tags = dedupe(ef.tags)
-		}
-		if ef.folderSet {
-			newFolder := sanitizeFolder(ef.folder)
-			folderChanged = newFolder != b.Folder
-			b.Folder = newFolder
-		}
-		b.UpdatedAt = time.Now()
-		syncBookmarkFiles(cfg, b, folderChanged)
+		for _, b := range targets {
+			folderChanged := false
+			if ef.tagsSet {
+				b.Tags = dedupe(ef.tags)
+			}
+			if ef.folderSet {
+				newFolder := sanitizeFolder(ef.folder)
+				folderChanged = newFolder != b.Folder
+				b.Folder = newFolder
+			}
+			b.UpdatedAt = time.Now()
+			syncBookmarkFiles(cfg, b, folderChanged)
 
-		if ef.addMarkdown {
-			addMarkdownCopy(cfg, b)
-		}
-		if ef.addArchive {
-			addArchiveCopy(cfg, b)
-		}
+			if ef.addMarkdown {
+				addMarkdownCopy(cfg, b)
+			}
+			if ef.addArchive {
+				addArchiveCopy(cfg, b)
+			}
 
-		fmt.Printf("Updated [%d] %s\n", b.ID, b.Title)
+			fmt.Printf("Updated [%d] %s\n", b.ID, b.Title)
+		}
+	}
+
+	if len(missing) > 0 {
+		fmt.Printf("No bookmark with id(s): %s\n", joinInts(missing))
 	}
 
 	return store.Save()

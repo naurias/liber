@@ -42,22 +42,24 @@ func run(args []string) error {
 		return runList()
 	case "-e", "--edit":
 		if len(args) < 2 {
-			return fmt.Errorf("-e requires a bookmark id, e.g. liber -e 3")
+			return fmt.Errorf("-e requires a bookmark id or range, e.g. liber -e 3 or liber -e 1-3 -md")
 		}
-		id, err := strconv.Atoi(args[1])
+		spec, rest := consumeIDSpec(args[1:])
+		ids, err := parseIDSpec(spec)
 		if err != nil {
-			return fmt.Errorf("invalid id %q: use `liber -l` to see valid ids", args[1])
+			return fmt.Errorf("%w (use `liber -l` to see valid ids)", err)
 		}
-		return runEdit(id, args[2:])
+		return runEdit(ids, rest)
 	case "-d", "--delete":
 		if len(args) < 2 {
-			return fmt.Errorf("-d requires a bookmark id, e.g. liber -d 3")
+			return fmt.Errorf("-d requires a bookmark id or range, e.g. liber -d 3 or liber -d 1-4,7-9")
 		}
-		id, err := strconv.Atoi(args[1])
+		spec, rest := consumeIDSpec(args[1:])
+		ids, err := parseIDSpec(spec)
 		if err != nil {
-			return fmt.Errorf("invalid id %q: use `liber -l` to see valid ids", args[1])
+			return fmt.Errorf("%w (use `liber -l` to see valid ids)", err)
 		}
-		return runDelete(id, args[2:])
+		return runDelete(ids, rest)
 	case "-r", "--reindex":
 		return runReindex()
 	case "--history":
@@ -245,8 +247,12 @@ Usage:
   liber -e <id> -f subfold       move a bookmark to a different folder
   liber -e <id> -md              add a markdown copy if it doesn't have one yet
   liber -e <id> -a               add an archive if it doesn't have one yet
+  liber -e <ids> ...             <id> can also be a range/list: 1-3, 2,5,3, or 1-4,7-9 --
+                                  applies the same flags (or interactive edit) to each
   liber -d <id>                  delete a bookmark (asks for confirmation)
   liber -d <id> -y               delete without confirmation
+  liber -d <ids>                 <id> can also be a range/list, same as -e (one combined
+                                  confirmation listing everything that will be deleted)
   liber -r                       reindex: drop entries whose files were deleted
                                   outside liber (quarantining any surviving
                                   markdown/archive copy into <base_dir>/unindexed/),

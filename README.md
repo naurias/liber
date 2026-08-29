@@ -54,8 +54,12 @@ liber -e <id> -t tag-a tag-b   set a bookmark's tags directly (non-interactive)
 liber -e <id> -f subfold       move a bookmark to a different folder (non-interactive)
 liber -e <id> -md              add a markdown copy if it doesn't have one yet
 liber -e <id> -a               add an archive if it doesn't have one yet
+liber -e <ids> ...             <id> can be a range/list too: 1-3, 2,5,3, or 1-4,7-9 --
+                                applies the same flags (or interactive edit, one at a
+                                time) to each matched bookmark; see "Batch operations"
 liber -d <id>                  delete a bookmark (asks for confirmation)
 liber -d <id> -y               delete without confirmation
+liber -d <ids>                 <id> can be a range/list too, same as -e above
 liber -r                       reindex: clean up + renumber (see "Reindexing" below)
 liber --import <path>          import a browser bookmark export (see "Import" below)
 liber --import <path> -md -a   same, also generating markdown/archives for each (slow)
@@ -170,6 +174,36 @@ else the OS's default handler for `.md` files) and — unlike `(o)`/`(a)`,
 which fire-and-forget — runs synchronously with the terminal handed to it,
 since it might be a terminal editor like vim or nano that needs to take it
 over.
+
+## Batch operations
+
+Both `-e` and `-d` accept a single id (as always), or a range/list:
+
+```
+liber -d 5              a single bookmark
+liber -d 1-5            ids 1 through 5
+liber -d 2,5,3          just those three (order doesn't matter)
+liber -d 1-4,7-9        ranges and single ids can be mixed
+liber -d 1-4, 7-9       spaces after commas are fine too
+```
+
+The same syntax works for `-e`, applying whatever flags you give to every
+matched bookmark:
+
+```
+liber -e 1-3 -md        add a markdown copy to 1, 2, and 3 (skipping any that already have one)
+liber -e 1-3 -a         same, for archives
+liber -e 1-3 -f reading move all three into the "reading" folder
+liber -e 1-3            no flags -- edits each one interactively, in turn
+```
+
+Deleting a range or list shows what's about to go and asks once for the
+whole batch, rather than once per bookmark (`-y` skips that too, same as a
+single delete). Editing a range or list with flags applies silently to
+each one (no per-item prompts); editing one with no flags at all runs the
+normal interactive prompts once per bookmark, with a header telling you
+which one you're on. Either way, ids that don't exist are reported at the
+end rather than aborting the rest of the batch.
 
 ## Reindexing
 
