@@ -28,6 +28,24 @@ type Bookmark struct {
 	// LastOpenedAt/OpenCount: see dev-docs.md#history.
 	LastOpenedAt *time.Time `json:"last_opened_at,omitempty"`
 	OpenCount    int        `json:"open_count,omitempty"`
+
+	// AppliedRules: see dev-docs.md#automation.
+	AppliedRules []AppliedAutoRule `json:"applied_rules,omitempty"`
+}
+
+// AppliedAutoRule records that a rule touched this bookmark; see dev-docs.md#automation.
+type AppliedAutoRule struct {
+	RuleID int    `json:"rule_id"`
+	Folder string `json:"folder,omitempty"`
+}
+
+// AutoRule auto-classifies new/existing bookmarks by URL substring; see dev-docs.md#automation.
+type AutoRule struct {
+	ID        int       `json:"id"`
+	Match     string    `json:"match"`
+	Folder    string    `json:"folder,omitempty"`
+	Tags      []string  `json:"tags,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // Store is the full bookmark index, persisted as a single JSON file.
@@ -35,11 +53,14 @@ type Store struct {
 	NextID    int         `json:"next_id"`
 	Bookmarks []*Bookmark `json:"bookmarks"`
 
+	NextAutoRuleID int         `json:"next_auto_rule_id"`
+	AutoRules      []*AutoRule `json:"auto_rules,omitempty"`
+
 	path string // not persisted
 }
 
 func LoadStore(path string) (*Store, error) {
-	s := &Store{NextID: 1, path: path}
+	s := &Store{NextID: 1, NextAutoRuleID: 1, path: path}
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return s, nil
@@ -55,6 +76,9 @@ func LoadStore(path string) (*Store, error) {
 	s.path = path
 	if s.NextID == 0 {
 		s.NextID = 1
+	}
+	if s.NextAutoRuleID == 0 {
+		s.NextAutoRuleID = 1
 	}
 	return s, nil
 }
@@ -95,6 +119,32 @@ func (s *Store) Delete(id int) bool {
 	for i, b := range s.Bookmarks {
 		if b.ID == id {
 			s.Bookmarks = append(s.Bookmarks[:i], s.Bookmarks[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+// AddAutoRule assigns the next id to r and appends it to the store.
+func (s *Store) AddAutoRule(r *AutoRule) {
+	r.ID = s.NextAutoRuleID
+	s.NextAutoRuleID++
+	s.AutoRules = append(s.AutoRules, r)
+}
+
+func (s *Store) FindAutoRule(id int) *AutoRule {
+	for _, r := range s.AutoRules {
+		if r.ID == id {
+			return r
+		}
+	}
+	return nil
+}
+
+func (s *Store) DeleteAutoRule(id int) bool {
+	for i, r := range s.AutoRules {
+		if r.ID == id {
+			s.AutoRules = append(s.AutoRules[:i], s.AutoRules[i+1:]...)
 			return true
 		}
 	}

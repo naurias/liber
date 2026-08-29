@@ -109,6 +109,16 @@ func displayFolder(f string) string {
 	return f
 }
 
+// removeInt returns list with the first occurrence of val removed.
+func removeInt(list []int, val int) []int {
+	for i, v := range list {
+		if v == val {
+			return append(append([]int{}, list[:i]...), list[i+1:]...)
+		}
+	}
+	return list
+}
+
 // fileExists reports whether path exists and is readable via os.Stat.
 func fileExists(path string) bool {
 	_, err := os.Stat(path)

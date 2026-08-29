@@ -34,6 +34,8 @@ func runCreate(rawURL string, opt CreateOptions) error {
 		}
 	}
 
+	folder, tags, appliedRuleIDs := resolveAutoRulesForNew(store, url, folder, tags)
+
 	fmt.Printf("Fetching title for %s ...\n", url)
 	title := fetchTitle(url)
 
@@ -55,6 +57,7 @@ func runCreate(rawURL string, opt CreateOptions) error {
 	if err != nil {
 		return err
 	}
+	b.AppliedRules = appliedRuleIDs
 
 	if err := store.Save(); err != nil {
 		return fmt.Errorf("saving index: %w", err)
@@ -67,6 +70,9 @@ func runCreate(rawURL string, opt CreateOptions) error {
 	}
 	if b.ArchiveFile != "" {
 		fmt.Printf("  archive:  %s\n", filepath.Join(cfg.archiveDir(), b.ArchiveFile))
+	}
+	if len(appliedRuleIDs) > 0 {
+		fmt.Printf("  auto:     matched automation %s\n", joinInts(ruleIDsOf(appliedRuleIDs)))
 	}
 	return nil
 }

@@ -161,11 +161,14 @@ func runImport(path string, opt importOptions) error {
 			}
 		}
 		folder := sanitizeFolder(e.folder)
+		folder, tags, appliedRuleIDs := resolveAutoRulesForNew(store, url, folder, tags)
 
-		if _, err := addBookmarkToStore(cfg, store, url, title, e.desc, tags, folder, opt.Markdown, opt.Archive); err != nil {
+		b, err := addBookmarkToStore(cfg, store, url, title, e.desc, tags, folder, opt.Markdown, opt.Archive)
+		if err != nil {
 			fmt.Printf("warning: could not import %s: %v\n", url, err)
 			continue
 		}
+		b.AppliedRules = appliedRuleIDs
 		imported++
 	}
 

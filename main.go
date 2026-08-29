@@ -62,6 +62,24 @@ func run(args []string) error {
 		return runDelete(ids, rest)
 	case "-r", "--reindex":
 		return runReindex()
+	case "--auto":
+		if len(args) == 1 {
+			return runAutoList()
+		}
+		switch args[1] {
+		case "add":
+			return runAutoAdd(args[2:])
+		case "list":
+			return runAutoList()
+		case "edit":
+			return runAutoEdit(args[2:])
+		case "delete":
+			return runAutoDelete(args[2:])
+		case "apply":
+			return runAutoApply(args[2:])
+		default:
+			return fmt.Errorf("unknown --auto subcommand %q (expected add, list, edit, delete, or apply)", args[1])
+		}
 	case "--history":
 		return runHistory()
 	case "--sync":
@@ -268,6 +286,16 @@ Usage:
                                   physically moves each bookmark's files
   liber --folders delete <f>     move a folder's bookmarks back to the root
   liber --history                list bookmarks by most recently opened (via -s's (o) action)
+  liber --auto add --match <str> --folder <f> --tag <t1 t2>
+                                  auto-classify new bookmarks whose url contains <str> (folder
+                                  and/or tags; also applied once, immediately, to matching
+                                  existing bookmarks -- a later manual move/edit always sticks)
+  liber --auto                   list automations and how many bookmarks each has classified
+  liber --auto edit <id> [--match x] [--folder y] [--tag t1 t2] [--reapply]
+                                  change a rule; --reapply re-syncs bookmarks it already
+                                  classified (skipping any since manually moved/retagged)
+  liber --auto delete <id>       remove a rule (bookmarks it already classified are untouched)
+  liber --auto apply [<id>]      re-run one rule, or all of them, against existing bookmarks
   liber --sync                   commit the collection, if <base_dir> is inside a jj or git repo
   liber --sync -p                same, then push
   liber config                   show the active config file and its path
