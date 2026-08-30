@@ -25,10 +25,17 @@ func run(args []string) error {
 	}
 
 	if opt, legacy, ok := parseSearchFlag(args[0]); ok {
-		if legacy {
-			return runSearchLegacy(opt)
+		deep := false
+		if len(args) > 1 {
+			if args[1] != "--deep" {
+				return fmt.Errorf("unknown flag %q (only --deep is supported after a search flag)", args[1])
+			}
+			deep = true
 		}
-		return runSearch(opt)
+		if legacy {
+			return runSearchLegacy(opt, deep)
+		}
+		return runSearch(opt, deep)
 	}
 
 	switch args[0] {
@@ -62,6 +69,8 @@ func run(args []string) error {
 		return runDelete(ids, rest)
 	case "-r", "--reindex":
 		return runReindex()
+	case "--profile":
+		return runProfile(args[1:])
 	case "--auto":
 		if len(args) == 1 {
 			return runAutoList()
@@ -226,6 +235,11 @@ func runConfigCmd(args []string) error {
 	}
 	fmt.Println("Config file:", path)
 	fmt.Println()
+	activeProfile := "default"
+	if cfg.ActiveProfile != "" {
+		activeProfile = cfg.ActiveProfile
+	}
+	fmt.Println("active_profile", activeProfile)
 	fmt.Println("base_dir      ", cfg.BaseDir)
 	fmt.Println("html_dir      ", cfg.htmlDir())
 	fmt.Println("markdown_dir  ", cfg.markdownDir())
@@ -258,6 +272,9 @@ Usage:
                                   description / folder (combine freely, e.g. -sdf = folder+description)
   liber -sl                      force the plain prompt (skip fzf even if installed)
   liber -sld                     legacy prompt restricted to descriptions (mix -l with any of n/u/t/d/f)
+  liber -s --deep                also full-text search inside archived pages (asks for a query
+                                  first, then browses matches; combine with -sn/-sd/etc as usual)
+  liber -sl --deep               same, forced to the plain prompt
   liber -l                       list all bookmarks with their ids
   liber -e <id>                  edit a bookmark interactively (also offers to add a
                                   markdown copy or archive if either is missing)
@@ -298,6 +315,12 @@ Usage:
   liber --auto apply [<id>]      re-run one rule, or all of them, against existing bookmarks
   liber --sync                   commit the collection, if <base_dir> is inside a jj or git repo
   liber --sync -p                same, then push
+  liber --profile                list profiles (base_dir subfolders that isolate a whole
+                                  collection: bookmarks, tags, folders, automations, everything),
+                                  marking the active one
+  liber --profile <name>         switch to <name>, creating it first if it's new
+  liber --profile default        switch back to using <base_dir> directly (no profile)
+  liber --profile delete <name>  stop tracking a profile (its folder and data are untouched)
   liber config                   show the active config file and its path
   liber -v                       print the version
 

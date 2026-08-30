@@ -190,12 +190,19 @@ func (f SearchFields) Label() string {
 }
 
 // Search does a case-insensitive substring match, scoped to fields (or everything, if none selected).
-func (s *Store) Search(query string, fields SearchFields) []*Bookmark {
+func (s *Store) Search(cfg Config, query string, fields SearchFields, deep bool) []*Bookmark {
 	query = strings.ToLower(strings.TrimSpace(query))
 	var results []*Bookmark
 	for _, b := range s.Bookmarks {
 		if query == "" || bookmarkMatches(b, query, fields) {
 			results = append(results, b)
+			continue
+		}
+		if deep && b.ArchiveFile != "" {
+			text, err := extractArchiveText(filepath.Join(cfg.archiveDir(), b.ArchiveFile))
+			if err == nil && strings.Contains(strings.ToLower(text), query) {
+				results = append(results, b)
+			}
 		}
 	}
 	sort.Slice(results, func(i, j int) bool { return results[i].ID < results[j].ID })

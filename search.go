@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func runSearch(fields SearchFields) error {
+func runSearch(fields SearchFields, deep bool) error {
 	cfg, store, err := loadCfgAndStore()
 	if err != nil {
 		return err
@@ -16,6 +16,23 @@ func runSearch(fields SearchFields) error {
 	if len(store.Bookmarks) == 0 {
 		fmt.Println("No bookmarks yet. Add one with: liber <url>")
 		return nil
+	}
+
+	if deep {
+		list, ok := promptDeepQuery(cfg, store, fields)
+		if !ok {
+			return nil
+		}
+		if fzfAvailable() {
+			if err := runSearchFzfList(cfg, store, fields, list); err != nil {
+				fmt.Printf("(fzf picker failed: %v -- falling back to plain list)\n", err)
+			} else {
+				return nil
+			}
+		} else {
+			fmt.Println("(tip: install fzf for a fuzzy picker here -- falling back to plain list)")
+		}
+		return runPlainListLoop(cfg, store, list)
 	}
 
 	if fzfAvailable() {
@@ -31,7 +48,7 @@ func runSearch(fields SearchFields) error {
 }
 
 // runSearchLegacy skips the fzf check (used by `liber -sl` and its field-restricted variants).
-func runSearchLegacy(fields SearchFields) error {
+func runSearchLegacy(fields SearchFields, deep bool) error {
 	cfg, store, err := loadCfgAndStore()
 	if err != nil {
 		return err
@@ -40,10 +57,33 @@ func runSearchLegacy(fields SearchFields) error {
 		fmt.Println("No bookmarks yet. Add one with: liber <url>")
 		return nil
 	}
+	if deep {
+		list, ok := promptDeepQuery(cfg, store, fields)
+		if !ok {
+			return nil
+		}
+		return runPlainListLoop(cfg, store, list)
+	}
 	return runSearchPrompt(cfg, store, fields)
 }
 
-// runSearchFzf loops the fzf picker into the action menu until the user quits.
+// promptDeepQuery asks once for a query and returns the filtered list; see dev-docs.md#deep-search.
+func promptDeepQuery(cfg Config, store *Store, fields SearchFields) ([]*Bookmark, bool) {
+	q := promptLine(fmt.Sprintf("Deep search %s + archive content (empty = all)", fields.Label()))
+	if strings.TrimSpace(q) == "" {
+		fmt.Println("No query given -- showing everything.")
+		return store.All(), true
+	}
+	fmt.Println("Searching archives, this may take a moment...")
+	list := filterDeep(cfg, store.All(), q, fields)
+	if len(list) == 0 {
+		fmt.Println("No matches.")
+		return nil, false
+	}
+	return list, true
+}
+
+// runSearchFzf loops the fzf picker (fresh bookmark list each time) into the action menu.
 func runSearchFzf(cfg Config, store *Store, fields SearchFields) error {
 	for {
 		all := store.All()
@@ -68,7 +108,31 @@ func runSearchFzf(cfg Config, store *Store, fields SearchFields) error {
 	}
 }
 
-// runSearchPrompt is the dependency-free fallback picker.
+// runSearchFzfList is runSearchFzf over a fixed list (deep search's one-time snapshot).
+func runSearchFzfList(cfg Config, store *Store, fields SearchFields, list []*Bookmark) error {
+	for {
+		if len(list) == 0 {
+			fmt.Println("No bookmarks left.")
+			return nil
+		}
+		id, ok, err := pickWithFzf(list, fields)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return nil
+		}
+		b := store.Find(id)
+		if b == nil {
+			continue
+		}
+		if actionMenu(cfg, store, b) == actionQuit {
+			return nil
+		}
+	}
+}
+
+// runSearchPrompt is the dependency-free fallback: query, list, act, repeat.
 func runSearchPrompt(cfg Config, store *Store, fields SearchFields) error {
 	label := fmt.Sprintf("Search %s (empty = all, 'q' to quit)", fields.Label())
 	for {
@@ -76,7 +140,7 @@ func runSearchPrompt(cfg Config, store *Store, fields SearchFields) error {
 		if q == "q" {
 			return nil
 		}
-		results := store.Search(q, fields)
+		results := store.Search(cfg, q, fields, false)
 		if len(results) == 0 {
 			fmt.Println("No matches.")
 			continue
@@ -105,6 +169,30 @@ func runSearchPrompt(cfg Config, store *Store, fields SearchFields) error {
 			if done == actionQuit {
 				return nil
 			}
+		}
+	}
+}
+
+// runPlainListLoop is runSearchPrompt's inner loop over a fixed list (deep search).
+func runPlainListLoop(cfg Config, store *Store, list []*Bookmark) error {
+	printResults(list)
+	for {
+		sel := promptLine("id to open/edit ('q' to quit)")
+		if sel == "q" || sel == "" {
+			return nil
+		}
+		id, err := strconv.Atoi(sel)
+		if err != nil {
+			fmt.Println("Not a valid id.")
+			continue
+		}
+		b := store.Find(id)
+		if b == nil {
+			fmt.Println("No bookmark with that id.")
+			continue
+		}
+		if actionMenu(cfg, store, b) == actionQuit {
+			return nil
 		}
 	}
 }
