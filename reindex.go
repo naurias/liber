@@ -15,7 +15,7 @@ func runReindex() error {
 		return err
 	}
 
-	unindexedRoot := filepath.Join(expandTilde(cfg.BaseDir), "unindexed")
+	unindexedRoot := filepath.Join(cfg.effectiveBaseDir(), "unindexed")
 
 	var kept []*Bookmark
 	removed := 0
@@ -129,7 +129,7 @@ func compactIDs(cfg Config, kept []*Bookmark) ([]string, error) {
 	var pending []pendingMove
 	var renamed []string
 
-	stagingRoot := filepath.Join(expandTilde(cfg.BaseDir), ".liber", "restage")
+	stagingRoot := filepath.Join(cfg.effectiveBaseDir(), ".liber", "restage")
 	defer os.RemoveAll(stagingRoot)
 
 	nextID := 1

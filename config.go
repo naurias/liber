@@ -24,6 +24,10 @@ type Config struct {
 
 	// EditorCmd overrides the -s "markdown" command (default: $VISUAL, $EDITOR, then OS default).
 	EditorCmd string `json:"editor_cmd,omitempty"`
+
+	// ActiveProfile/Profiles: see dev-docs.md#profiles.
+	ActiveProfile string   `json:"active_profile,omitempty"`
+	Profiles      []string `json:"profiles,omitempty"`
 }
 
 func configPath() (string, error) {
@@ -89,27 +93,36 @@ func SaveConfig(cfg Config) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
+// effectiveBaseDir is base_dir, or base_dir/<active_profile> if a profile is active; see dev-docs.md#profiles.
+func (c Config) effectiveBaseDir() string {
+	base := expandTilde(c.BaseDir)
+	if c.ActiveProfile != "" {
+		return filepath.Join(base, c.ActiveProfile)
+	}
+	return base
+}
+
 func (c Config) htmlDir() string {
 	if c.HTMLDir != "" {
 		return expandTilde(c.HTMLDir)
 	}
-	return filepath.Join(expandTilde(c.BaseDir), "html")
+	return filepath.Join(c.effectiveBaseDir(), "html")
 }
 
 func (c Config) markdownDir() string {
 	if c.MarkdownDir != "" {
 		return expandTilde(c.MarkdownDir)
 	}
-	return filepath.Join(expandTilde(c.BaseDir), "markdown")
+	return filepath.Join(c.effectiveBaseDir(), "markdown")
 }
 
 func (c Config) archiveDir() string {
 	if c.ArchiveDir != "" {
 		return expandTilde(c.ArchiveDir)
 	}
-	return filepath.Join(expandTilde(c.BaseDir), "archive")
+	return filepath.Join(c.effectiveBaseDir(), "archive")
 }
 
 func (c Config) indexPath() string {
-	return filepath.Join(expandTilde(c.BaseDir), ".liber", "index.json")
+	return filepath.Join(c.effectiveBaseDir(), ".liber", "index.json")
 }

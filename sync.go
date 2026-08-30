@@ -45,7 +45,7 @@ func runSync(push bool) error {
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
-	baseDir := expandTilde(cfg.BaseDir)
+	baseDir := cfg.effectiveBaseDir()
 
 	root, isJJ, isGit := findRepoRoot(baseDir)
 	if root == "" {
