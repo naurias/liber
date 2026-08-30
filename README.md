@@ -47,6 +47,7 @@ liber -sn / -su / -st / -sd / -sf
 liber -sdf                     fields combine freely, e.g. this is folder+description only
 liber -sl                      force the plain prompt even if fzf is installed
 liber -sld                     legacy prompt scoped to descriptions (mix -l with any of n/u/t/d/f)
+liber -s --deep / -sl --deep   also full-text search inside archived pages (see "Deep search")
 liber -l                       list all bookmarks with their ids
 liber -e <id>                  edit a bookmark interactively (also offers to add a
                                 markdown copy or archive if either is missing)
@@ -73,6 +74,10 @@ liber --auto add --match <s> --folder <f> --tag <t1 t2>
                                 auto-classify new bookmarks by URL (see "Automation")
 liber --auto / --auto edit / --auto delete / --auto apply
                                 list/edit/delete/re-run automations (see "Automation")
+liber --profile                list profiles, with the active one marked (see "Profiles")
+liber --profile <name>         switch to <name>, creating it if it's new
+liber --profile default        switch back to the non-profile layout
+liber --profile delete <name>  stop tracking a profile (its data is untouched)
 liber --sync / --sync -p       commit (and optionally push) if it's a jj/git repo (see "Sync")
 liber config                   show the active config file and its path
 liber -v                       print the version
@@ -135,6 +140,40 @@ Fields:
 
 Run `liber config` to see the resolved paths.
 
+## Profiles
+
+By default there's just one collection, living directly under `base_dir`.
+If you want separate, fully independent collections — say, `work` and
+`personal` — profiles give you that:
+
+```
+liber --profile                list profiles, marking the active one
+liber --profile work           switch to "work", creating it if it's new
+liber --profile personal       switch to "personal" (also created on first use)
+liber --profile default        switch back to the plain base_dir layout
+liber --profile delete work    stop tracking "work" (its folder and data are untouched)
+```
+
+A profile is just a subfolder of `base_dir` — `liber --profile work` makes
+`<base_dir>/work/` the effective base dir for everything (`html/`,
+`markdown/`, `archive/`, `.liber/index.json`) until you switch again.
+Each profile has its own bookmarks, ids, tags, folders, and
+[automations](#automation) — completely independent; there's currently no
+way to search or move bookmarks across profiles, only to list which ones
+exist and switch between them. `active_profile` is stored in
+`config.json`, which is otherwise shared (things like `editor_cmd`/
+`browser_cmd` apply regardless of which profile is active).
+
+Nothing changes if you never touch `--profile` — the original flat layout
+(`base_dir/html`, etc.) is exactly what "no active profile" means, so
+existing collections are completely unaffected.
+
+`--profile delete` only stops tracking a profile in the list shown by
+`--profile` — it never touches the folder or its bookmarks, and refuses to
+delete the currently active profile (switch away first). Switching to a
+name you'd previously deleted-from-tracking picks its existing data back
+up rather than starting over.
+
 ## Layout on disk
 
 ```
@@ -144,6 +183,9 @@ Run `liber config` to see the resolved paths.
   archive/<folder>/0007-my-title.html
   .liber/index.json
 ```
+
+(With a profile active, read `<base_dir>` above as `<base_dir>/<profile>` —
+see "Profiles" above.)
 
 Every bookmark's files are prefixed with its numeric id, so `liber -l` /
 `liber -s` results always line up with what's on disk. Editing a bookmark's
@@ -178,6 +220,26 @@ else the OS's default handler for `.md` files) and — unlike `(o)`/`(a)`,
 which fire-and-forget — runs synchronously with the terminal handed to it,
 since it might be a terminal editor like vim or nano that needs to take it
 over.
+
+## Deep search
+
+`liber -s --deep` / `liber -sl --deep` add your archived pages' actual
+content as a second way to match, on top of whatever metadata scope
+(the default, or `-sn`/`-su`/`-st`/`-sd`/`-sf`) is already active. A
+bookmark matches if its scoped metadata matches, *or* its archive content
+does — `--deep` widens the search, it never narrows what a field-scope
+flag already restricts. Only bookmarks that have an archive (`-a` at
+creation, or added later) are eligible.
+
+Because matching archive content needs a concrete query up front (unlike
+fzf's normal live-as-you-type filtering), `--deep` always asks for a
+search term first, then browses whatever matched — via fzf if available,
+otherwise the plain list, same action menu either way. Text is extracted
+from each archive with a lightweight, dependency-free HTML-to-text pass
+(script/style stripped, tags stripped, entities unescaped) rather than a
+full parser, and each file is capped at 5MB scanned — fine for ordinary
+pages, but a search may take a moment on a large collection since every
+eligible archive is read fresh each time (there's no separate text index).
 
 ## Batch operations
 
