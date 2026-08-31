@@ -81,6 +81,9 @@ liber --profile delete <name>  stop tracking a profile (its data is untouched)
 liber --sync / --sync -p       commit (and optionally push) if it's a jj/git repo (see "Sync")
 liber config                   show the active config file and its path
 liber -v                       print the version
+liber --serve                  local web UI for search + add (see "Web UI")
+liber --serve --addr <host:port>
+                                use a different address (default 127.0.0.1:8080)
 ```
 
 `liber -s` opens an [fzf](https://github.com/junegunn/fzf) picker if `fzf` is
@@ -456,6 +459,59 @@ to, so this only ever catches URLs that are genuinely the same page, never
 ones that just look similar. `liber --import` uses the same check but skips
 silently instead of prompting, since bulk-importing isn't a good time to
 ask per-item.
+
+## Web UI
+
+`liber --serve` starts a local web UI at `http://127.0.0.1:8080` (pure
+Go standard library — `net/http` + `html/template`, no external
+dependencies, no JS framework, no build step) for searching, adding,
+editing, and deleting bookmarks.
+
+**Search** works exactly like the CLI, because it's the same code
+underneath — a query box, checkboxes for title/url/tags/description/folder
+(unchecked = search everything, same as `-s` with no letters), and a
+"deep" checkbox that searches archive content too, same as `-s --deep`.
+Results show title (linking to the actual page), url, folder, tags, and
+`md`/`arc` badges that link to the saved markdown/archive copy.
+
+**Adding** a bookmark is a simple form (URL, description, tags, folder,
+checkboxes for markdown/archive) that reuses the exact same creation logic
+as `liber <url>` — including automations and duplicate detection. Since a
+web form can't do the CLI's interactive "add anyway? [y/N]" prompt, a
+detected duplicate re-shows the form with what you entered still filled
+in, plus a warning and a relabeled "Yes, add anyway" button — submitting
+that again is the confirmation.
+
+**Editing** — click "edit" on any result for a form (title, description,
+tags, folder, and — if it doesn't already have one — checkboxes to add a
+markdown copy or archive) that saves via the same logic `liber -e` uses:
+changing the folder physically relocates the bookmark's files, same as
+everywhere else in liber.
+
+**Deleting** — click "delete" and you'll get an inline confirmation
+("Delete [3] Some Title?") before anything happens; nothing is removed
+until you confirm.
+
+A handy trick: add a bookmarklet to your browser's toolbar with this as
+the URL (adjust the port if you used `--addr`) to quickly bookmark
+whatever page you're currently on:
+
+```
+javascript:location.href='http://127.0.0.1:8080/?prefill='+encodeURIComponent(location.href)
+```
+
+It reflects whichever [profile](#profiles) is active, and even picks up a
+profile switch made via the CLI in another terminal on its next request —
+no restart needed. There's no login of any kind, so keep it on
+`127.0.0.1` (the default) unless you're on a network you fully trust — see
+the warning `--serve` itself prints if you point `--addr` anywhere else,
+since a reachable instance means read, add, edit, *and* delete access to
+your whole collection.
+
+Once a search's result count passes 500, simple `?page=N` pagination
+appears automatically (no controls at all below that) — a scoped or deep
+search's page-forward/back links carry the same query along, so paging
+through a filtered search keeps it filtered.
 
 ## Design notes / limitations
 
