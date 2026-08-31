@@ -71,6 +71,8 @@ func run(args []string) error {
 		return runReindex()
 	case "--profile":
 		return runProfile(args[1:])
+	case "--serve":
+		return runServe(args[1:])
 	case "--auto":
 		if len(args) == 1 {
 			return runAutoList()
@@ -323,6 +325,11 @@ Usage:
   liber --profile delete <name>  stop tracking a profile (its folder and data are untouched)
   liber config                   show the active config file and its path
   liber -v                       print the version
+  liber --serve                  local web UI at http://127.0.0.1:8080 -- search (with the
+                                  same scoping/deep options as -s), plus add, edit, and delete
+  liber --serve --addr <host:port>
+                                  use a different address (non-loopback prints a warning:
+                                  it exposes read/add/edit/delete access, no login)
 
 Flags may be combined, e.g.:
   liber https://example.com -i -t news reading -f articles -md -a
