@@ -14,13 +14,13 @@
       {
         packages.default = pkgs.buildGoModule {
           pname = "liber";
-          version = "0.2.0";
+          version = "0.5.1";
           src = ./.;
 
           # No third-party Go modules are used, so there's nothing to vendor.
           vendorHash = null;
 
-          ldflags = [ "-X main.Version=0.2.0" ];
+          ldflags = [ "-X main.Version=0.5.1" ];
 
           # Optional runtime dependencies:
           #   - single-file-cli for `liber -a` archiving
