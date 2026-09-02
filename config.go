@@ -12,9 +12,10 @@ type Config struct {
 	// BaseDir is the root of the collection; other dirs default under it.
 	BaseDir string `json:"base_dir"`
 
-	HTMLDir     string `json:"html_dir,omitempty"`
-	MarkdownDir string `json:"markdown_dir,omitempty"`
-	ArchiveDir  string `json:"archive_dir,omitempty"`
+	HTMLDir       string `json:"html_dir,omitempty"`
+	MarkdownDir   string `json:"markdown_dir,omitempty"`
+	ArchiveDir    string `json:"archive_dir,omitempty"`
+	AttachmentDir string `json:"attachment_dir,omitempty"`
 
 	// SingleFileCmd: https://github.com/gildas-lormeau/single-file-cli
 	SingleFileCmd string `json:"singlefile_cmd,omitempty"`
@@ -121,6 +122,13 @@ func (c Config) archiveDir() string {
 		return expandTilde(c.ArchiveDir)
 	}
 	return filepath.Join(c.effectiveBaseDir(), "archive")
+}
+
+func (c Config) attachmentsDir() string {
+	if c.AttachmentDir != "" {
+		return expandTilde(c.AttachmentDir)
+	}
+	return filepath.Join(c.effectiveBaseDir(), "attachments")
 }
 
 func (c Config) indexPath() string {

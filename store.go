@@ -31,6 +31,15 @@ type Bookmark struct {
 
 	// AppliedRules: see dev-docs.md#automation.
 	AppliedRules []AppliedAutoRule `json:"applied_rules,omitempty"`
+
+	// Attachments: see dev-docs.md#attachments.
+	Attachments []Attachment `json:"attachments,omitempty"`
+}
+
+// Attachment is a user-supplied file copied into the collection; see dev-docs.md#attachments.
+type Attachment struct {
+	Name string `json:"name"` // original filename, for display and matching
+	File string `json:"file"` // path relative to the attachments dir
 }
 
 // AppliedAutoRule records that a rule touched this bookmark; see dev-docs.md#automation.
