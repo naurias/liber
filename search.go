@@ -214,7 +214,7 @@ func actionMenu(cfg Config, store *Store, b *Bookmark) actionResult {
 		if b.ArchiveFile != "" {
 			opts += "  (a)rchive"
 		}
-		opts += "  (e)dit  (d)elete  (b)ack  (q)uit"
+		opts += "  attachmen(t)s  (e)dit  (d)elete  (b)ack  (q)uit"
 		choice := strings.ToLower(promptLine(opts))
 		switch choice {
 		case "o":
@@ -248,6 +248,11 @@ func actionMenu(cfg Config, store *Store, b *Bookmark) actionResult {
 			}
 		case "e":
 			editBookmarkInteractive(cfg, b)
+			if err := store.Save(); err != nil {
+				fmt.Println("Could not save index:", err)
+			}
+		case "t":
+			attachmentsMenu(cfg, b)
 			if err := store.Save(); err != nil {
 				fmt.Println("Could not save index:", err)
 			}
@@ -287,7 +292,7 @@ func printResults(list []*Bookmark) {
 	fmt.Println()
 }
 
-// badgeSuffix renders " [md]", " [arc]", " [md,arc]", or "".
+// badgeSuffix renders " [md]", " [arc,att2]", " [att]", or "" -- see dev-docs.md#attachments.
 func badgeSuffix(b *Bookmark) string {
 	var parts []string
 	if b.MarkdownFile != "" {
@@ -295,6 +300,11 @@ func badgeSuffix(b *Bookmark) string {
 	}
 	if b.ArchiveFile != "" {
 		parts = append(parts, "arc")
+	}
+	if n := len(b.Attachments); n == 1 {
+		parts = append(parts, "att")
+	} else if n > 1 {
+		parts = append(parts, fmt.Sprintf("att%d", n))
 	}
 	if len(parts) == 0 {
 		return ""

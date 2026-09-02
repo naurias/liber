@@ -50,5 +50,12 @@ func runPreview(id int) error {
 	}
 	fmt.Printf("\x1b[2mmarkdown: %s\x1b[0m\n", markdownStatus)
 	fmt.Printf("\x1b[2marchive:  %s\x1b[0m\n", archiveStatus)
+	if len(b.Attachments) == 0 {
+		fmt.Printf("\x1b[2mattach:   (none)\x1b[0m\n")
+	} else {
+		for _, at := range b.Attachments {
+			fmt.Printf("\x1b[2mattach:   %s\x1b[0m\n", filepath.Join(cfg.attachmentsDir(), at.File))
+		}
+	}
 	return nil
 }

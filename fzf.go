@@ -92,6 +92,11 @@ func pickWithFzf(list []*Bookmark, fields SearchFields) (id int, ok bool, err er
 		if b.ArchiveFile != "" {
 			badgeParts = append(badgeParts, "arc")
 		}
+		if n := len(b.Attachments); n == 1 {
+			badgeParts = append(badgeParts, "att")
+		} else if n > 1 {
+			badgeParts = append(badgeParts, fmt.Sprintf("att%d", n))
+		}
 		badges := ""
 		if len(badgeParts) > 0 {
 			badges = "\x1b[2m[" + strings.Join(badgeParts, ",") + "]\x1b[0m"

@@ -59,6 +59,9 @@ func deleteBookmarkFiles(cfg Config, b *Bookmark) {
 	if b.ArchiveFile != "" {
 		os.Remove(filepath.Join(cfg.archiveDir(), b.ArchiveFile))
 	}
+	for _, at := range b.Attachments {
+		os.Remove(filepath.Join(cfg.attachmentsDir(), at.File))
+	}
 }
 
 // sharedBase returns the id-slug basename shared across a bookmark's files; see dev-docs.md#data-model.
@@ -124,11 +127,12 @@ func editBookmarkInteractive(cfg Config, b *Bookmark) {
 	if b.ArchiveFile == "" && confirm("Add an archive copy?", false) {
 		addArchiveCopy(cfg, b)
 	}
+	attachmentsMenu(cfg, b)
 
 	fmt.Println("Updated.")
 }
 
-// editFlags are the flags for `liber -e <id> [-t ...] [-f folder] [-md] [-a]`.
+// editFlags are the flags for `liber -e <id> [-t ...] [-f folder] [-md] [-a] [-at file] [-dt match]`.
 type editFlags struct {
 	tagsSet     bool
 	tags        []string
@@ -136,6 +140,8 @@ type editFlags struct {
 	folder      string
 	addMarkdown bool
 	addArchive  bool
+	attach      []string
+	detach      []string
 }
 
 func parseEditFlags(args []string) (editFlags, error) {
@@ -161,6 +167,18 @@ func parseEditFlags(args []string) (editFlags, error) {
 			ef.addMarkdown = true
 		case "-a", "--archive":
 			ef.addArchive = true
+		case "-at", "--attach":
+			if i+1 >= len(args) {
+				return ef, fmt.Errorf("-at requires a file path")
+			}
+			ef.attach = append(ef.attach, args[i+1])
+			i++
+		case "-dt", "--detach":
+			if i+1 >= len(args) {
+				return ef, fmt.Errorf("-dt requires an attachment number or name")
+			}
+			ef.detach = append(ef.detach, args[i+1])
+			i++
 		default:
 			return ef, fmt.Errorf("unknown flag for -e: %s", args[i])
 		}
@@ -218,6 +236,19 @@ func runEdit(ids []int, rest []string) error {
 			}
 			if ef.addArchive {
 				addArchiveCopy(cfg, b)
+			}
+			for _, match := range ef.detach {
+				i, err := findAttachment(b, match)
+				if err != nil {
+					fmt.Printf("warning: %v\n", err)
+					continue
+				}
+				name := b.Attachments[i].Name
+				detachAttachment(cfg, b, i)
+				fmt.Printf("Detached %s\n", name)
+			}
+			for _, p := range ef.attach {
+				attachOrWarn(cfg, b, p)
 			}
 
 			fmt.Printf("Updated [%d] %s\n", b.ID, b.Title)
