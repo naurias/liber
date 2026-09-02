@@ -28,18 +28,25 @@ func runReindex() error {
 		}
 
 		if htmlAbs != "" && fileExists(htmlAbs) {
-			// still live -- just drop stale md/archive references, nothing to relocate
+			// still live -- just drop stale md/archive/attachment references, nothing to relocate
 			if b.MarkdownFile != "" && !fileExists(filepath.Join(cfg.markdownDir(), b.MarkdownFile)) {
 				b.MarkdownFile = ""
 			}
 			if b.ArchiveFile != "" && !fileExists(filepath.Join(cfg.archiveDir(), b.ArchiveFile)) {
 				b.ArchiveFile = ""
 			}
+			var live []Attachment
+			for _, at := range b.Attachments {
+				if fileExists(filepath.Join(cfg.attachmentsDir(), at.File)) {
+					live = append(live, at)
+				}
+			}
+			b.Attachments = live
 			kept = append(kept, b)
 			continue
 		}
 
-		// html deleted outside liber -- drop the entry, quarantine any surviving md/archive
+		// html deleted outside liber -- drop the entry, quarantine any surviving md/archive/attachments
 		removed++
 		if b.MarkdownFile != "" {
 			src := filepath.Join(cfg.markdownDir(), b.MarkdownFile)
@@ -56,6 +63,17 @@ func runReindex() error {
 			src := filepath.Join(cfg.archiveDir(), b.ArchiveFile)
 			if fileExists(src) {
 				dst := filepath.Join(unindexedRoot, "archive", b.ArchiveFile)
+				if err := moveFile(src, dst); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: could not move %s: %v\n", src, err)
+				} else {
+					orphansMoved++
+				}
+			}
+		}
+		for _, at := range b.Attachments {
+			src := filepath.Join(cfg.attachmentsDir(), at.File)
+			if fileExists(src) {
+				dst := filepath.Join(unindexedRoot, "attachments", at.File)
 				if err := moveFile(src, dst); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: could not move %s: %v\n", src, err)
 				} else {
@@ -81,7 +99,7 @@ func runReindex() error {
 		fmt.Printf("Dropped %d entr%s whose bookmark file no longer exists.\n", removed, entrySuffix(removed))
 	}
 	if orphansMoved > 0 {
-		fmt.Printf("Moved %d orphaned markdown/archive file(s) to %s\n", orphansMoved, unindexedRoot)
+		fmt.Printf("Moved %d orphaned markdown/archive/attachment file(s) to %s\n", orphansMoved, unindexedRoot)
 	}
 	if len(renamed) > 0 {
 		fmt.Println("Renumbered to close gaps:")
@@ -125,6 +143,7 @@ func compactIDs(cfg Config, kept []*Bookmark) ([]string, error) {
 		b         *Bookmark
 		stagedAbs string
 		finalRel  string
+		attIdx    int // >= 0 means this move is an attachment (field is unused)
 	}
 	var pending []pendingMove
 	var renamed []string
@@ -161,7 +180,24 @@ func compactIDs(cfg Config, kept []*Bookmark) ([]string, error) {
 			if err := moveFile(srcAbs, stagedAbs); err != nil {
 				return renamed, fmt.Errorf("staging %s: %w", srcAbs, err)
 			}
-			pending = append(pending, pendingMove{field: f, b: b, stagedAbs: stagedAbs, finalRel: finalRel})
+			pending = append(pending, pendingMove{field: f, b: b, stagedAbs: stagedAbs, finalRel: finalRel, attIdx: -1})
+		}
+
+		for i, at := range b.Attachments {
+			base := filepath.Base(at.File)
+			if !strings.HasPrefix(base, oldPrefix) {
+				fmt.Fprintf(os.Stderr, "warning: attachment file for bookmark %d doesn't match the expected 0000- naming, leaving it as-is\n", oldID)
+				continue
+			}
+			newBase := newPrefix + strings.TrimPrefix(base, oldPrefix)
+			finalRel := filepath.Join(filepath.Dir(at.File), newBase)
+
+			srcAbs := filepath.Join(cfg.attachmentsDir(), at.File)
+			stagedAbs := filepath.Join(stagingRoot, "attachments", at.File)
+			if err := moveFile(srcAbs, stagedAbs); err != nil {
+				return renamed, fmt.Errorf("staging %s: %w", srcAbs, err)
+			}
+			pending = append(pending, pendingMove{b: b, stagedAbs: stagedAbs, finalRel: finalRel, attIdx: i})
 		}
 
 		renamed = append(renamed, fmt.Sprintf("[%d] -> [%d]", oldID, newID))
@@ -169,11 +205,20 @@ func compactIDs(cfg Config, kept []*Bookmark) ([]string, error) {
 	}
 
 	for _, p := range pending {
-		finalAbs := filepath.Join(p.field.dir(cfg), p.finalRel)
+		var finalAbs string
+		if p.attIdx >= 0 {
+			finalAbs = filepath.Join(cfg.attachmentsDir(), p.finalRel)
+		} else {
+			finalAbs = filepath.Join(p.field.dir(cfg), p.finalRel)
+		}
 		if err := moveFile(p.stagedAbs, finalAbs); err != nil {
 			return renamed, fmt.Errorf("finalizing %s: %w", finalAbs, err)
 		}
-		p.field.set(p.b, p.finalRel)
+		if p.attIdx >= 0 {
+			p.b.Attachments[p.attIdx].File = p.finalRel
+		} else {
+			p.field.set(p.b, p.finalRel)
+		}
 	}
 
 	return renamed, nil
