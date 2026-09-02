@@ -14,6 +14,7 @@ type CreateOptions struct {
 	Archive     bool
 	Tags        []string
 	Folder      string
+	Attach      []string
 }
 
 func runCreate(rawURL string, opt CreateOptions) error {
@@ -59,6 +60,13 @@ func runCreate(rawURL string, opt CreateOptions) error {
 	}
 	b.AppliedRules = appliedRuleIDs
 
+	for _, p := range opt.Attach {
+		attachOrWarn(cfg, b, p)
+	}
+	if opt.Interactive {
+		attachmentsMenu(cfg, b)
+	}
+
 	if err := store.Save(); err != nil {
 		return fmt.Errorf("saving index: %w", err)
 	}
@@ -70,6 +78,9 @@ func runCreate(rawURL string, opt CreateOptions) error {
 	}
 	if b.ArchiveFile != "" {
 		fmt.Printf("  archive:  %s\n", filepath.Join(cfg.archiveDir(), b.ArchiveFile))
+	}
+	for _, at := range b.Attachments {
+		fmt.Printf("  attach:   %s\n", filepath.Join(cfg.attachmentsDir(), at.File))
 	}
 	if len(appliedRuleIDs) > 0 {
 		fmt.Printf("  auto:     matched automation %s\n", joinInts(ruleIDsOf(appliedRuleIDs)))

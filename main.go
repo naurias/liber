@@ -223,6 +223,12 @@ func parseCreateFlags(args []string) (CreateOptions, error) {
 			}
 			opt.Folder = args[i+1]
 			i++
+		case "-at", "--attach":
+			if i+1 >= len(args) {
+				return opt, fmt.Errorf("-at requires a file path")
+			}
+			opt.Attach = append(opt.Attach, args[i+1])
+			i++
 		default:
 			return opt, fmt.Errorf("unknown flag %q", args[i])
 		}
@@ -241,12 +247,13 @@ func runConfigCmd(args []string) error {
 	if cfg.ActiveProfile != "" {
 		activeProfile = cfg.ActiveProfile
 	}
-	fmt.Println("active_profile", activeProfile)
-	fmt.Println("base_dir      ", cfg.BaseDir)
-	fmt.Println("html_dir      ", cfg.htmlDir())
-	fmt.Println("markdown_dir  ", cfg.markdownDir())
-	fmt.Println("archive_dir   ", cfg.archiveDir())
-	fmt.Println("singlefile_cmd", cfg.SingleFileCmd)
+	fmt.Println("active_profile ", activeProfile)
+	fmt.Println("base_dir       ", cfg.BaseDir)
+	fmt.Println("html_dir       ", cfg.htmlDir())
+	fmt.Println("markdown_dir   ", cfg.markdownDir())
+	fmt.Println("archive_dir    ", cfg.archiveDir())
+	fmt.Println("attachment_dir ", cfg.attachmentsDir())
+	fmt.Println("singlefile_cmd ", cfg.SingleFileCmd)
 	if cfg.BrowserCmd != "" {
 		fmt.Println("browser_cmd   ", cfg.BrowserCmd)
 	}
@@ -268,6 +275,7 @@ Usage:
   liber <url> -md -a             both markdown and archive
   liber <url> -t tag-a tag-b     attach tags at creation time
   liber <url> -f subfold         save into a subfolder of the base directory
+  liber <url> -at report.pdf     attach a file (repeatable; copied into the collection)
   liber -s                       search/browse bookmarks, open or edit them
   liber -sn / -su / -st / -sd / -sf
                                   same, but restricted to one field: title / url / tags /
@@ -284,6 +292,9 @@ Usage:
   liber -e <id> -f subfold       move a bookmark to a different folder
   liber -e <id> -md              add a markdown copy if it doesn't have one yet
   liber -e <id> -a               add an archive if it doesn't have one yet
+  liber -e <id> -at file.pdf     attach a file (repeatable)
+  liber -e <id> -dt notes.pdf    detach an attachment by number or name (its saved
+                                   copy is deleted; interactive edit lists the numbers)
   liber -e <ids> ...             <id> can also be a range/list: 1-3, 2,5,3, or 1-4,7-9 --
                                   applies the same flags (or interactive edit) to each
   liber -d <id>                  delete a bookmark (asks for confirmation)
@@ -335,11 +346,15 @@ Flags may be combined, e.g.:
   liber https://example.com -i -t news reading -f articles -md -a
 
 liber -s uses fzf for picking if it's installed on PATH (title/url/tags/folder
-on the left, a markdown/archive presence badge, and a full detail preview --
-including description -- on the right), otherwise falls back to a plain
-numbered prompt. Use -sl to force the plain prompt regardless of whether fzf
-is installed. Either can be narrowed to specific fields with the n/u/t/d/f
+on the left, a markdown/archive/attachment presence badge, and a full detail
+preview -- including description -- on the right), otherwise falls back to a
+plain numbered prompt. Use -sl to force the plain prompt regardless of whether
+fzf is installed. Either can be narrowed to specific fields with the n/u/t/d/f
 letters shown above.
+
+Attachments are local files copied into <base_dir>/attachments (any type: PDFs,
+extra snapshots, downloads); "-i" prompts for them, the search menu's
+attachmen(t)s action opens/manages them, and badge "att"/"attN" shows the count.
 
 Adding a bookmark whose URL normalizes to one you already have (ignoring
 trailing slashes, tracking params, and default ports) asks before adding a
