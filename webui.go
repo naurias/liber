@@ -8,6 +8,7 @@ import (
 	neturl "net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -53,6 +54,7 @@ func runServe(args []string) error {
 	mux.HandleFunc("/delete", handleDelete)
 	mux.HandleFunc("/archive/", handleArchive)
 	mux.HandleFunc("/markdown/", handleMarkdown)
+	mux.HandleFunc("/attachment/", handleAttachment)
 
 	fmt.Printf("liber web UI: http://%s (Ctrl+C to stop)\n", addr)
 	return http.ListenAndServe(addr, mux)
@@ -119,6 +121,7 @@ type webBookmarkView struct {
 	Title, URL, Folder, Desc string
 	Tags                     []string
 	HasMarkdown, HasArchive  bool
+	AttachCount              int
 }
 
 func toWebViews(list []*Bookmark) []webBookmarkView {
@@ -128,6 +131,7 @@ func toWebViews(list []*Bookmark) []webBookmarkView {
 			ID: b.ID, Title: b.Title, URL: b.URL,
 			Folder: displayFolder(b.Folder), Desc: b.Description, Tags: b.Tags,
 			HasMarkdown: b.MarkdownFile != "", HasArchive: b.ArchiveFile != "",
+			AttachCount: len(b.Attachments),
 		})
 	}
 	return out
@@ -229,12 +233,38 @@ func renderDeleteConfirm(w http.ResponseWriter, store *Store, b *Bookmark) {
 	})
 }
 
+// parseWebForm handles urlencoded and multipart bodies (the latter for file uploads).
+func parseWebForm(r *http.Request) error {
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+		return r.ParseMultipartForm(256 << 20)
+	}
+	return r.ParseForm()
+}
+
+// attachUploads stores any files submitted under the "attachments" file input.
+func attachUploads(cfg Config, b *Bookmark, r *http.Request) {
+	if r.MultipartForm == nil {
+		return
+	}
+	defer r.MultipartForm.RemoveAll()
+	for _, fh := range r.MultipartForm.File["attachments"] {
+		f, err := fh.Open()
+		if err != nil {
+			continue
+		}
+		if err := attachReader(cfg, b, fh.Filename, f); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not attach %s: %v\n", fh.Filename, err)
+		}
+		f.Close()
+	}
+}
+
 func handleAdd(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	if err := r.ParseForm(); err != nil {
+	if err := parseWebForm(r); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
 	}
@@ -295,6 +325,7 @@ func handleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	b.AppliedRules = appliedRuleIDs
+	attachUploads(cfg, b, r)
 	if err := store.Save(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -314,21 +345,32 @@ func splitWebTags(raw string) []string {
 	return tags
 }
 
+type webAttachmentView struct {
+	Idx  int // 1-based, matches the CLI's attachment numbering
+	Name string
+}
+
 type editPageData struct {
 	ID                         int
 	Title, Description, Folder string
 	URL, TagsJoined            string
 	HasMarkdown, HasArchive    bool
+	Attachments                []webAttachmentView
 	Error                      string
 }
 
 func renderEditPage(w http.ResponseWriter, b *Bookmark, errMsg string) {
 	var buf bytes.Buffer
+	var atts []webAttachmentView
+	for i, at := range b.Attachments {
+		atts = append(atts, webAttachmentView{Idx: i + 1, Name: at.Name})
+	}
 	editBodyTmpl.Execute(&buf, editPageData{
 		ID: b.ID, Title: b.Title, Description: b.Description, Folder: b.Folder, URL: b.URL,
 		TagsJoined:  strings.Join(b.Tags, ", "),
 		HasMarkdown: b.MarkdownFile != "", HasArchive: b.ArchiveFile != "",
-		Error: errMsg,
+		Attachments: atts,
+		Error:       errMsg,
 	})
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	layoutTmpl.Execute(w, struct {
@@ -363,7 +405,7 @@ func handleEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleEditSave(w http.ResponseWriter, r *http.Request, id int) {
-	if err := r.ParseForm(); err != nil {
+	if err := parseWebForm(r); err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
 	}
@@ -403,6 +445,21 @@ func handleEditSave(w http.ResponseWriter, r *http.Request, id int) {
 	if r.FormValue("archive") == "on" {
 		addArchiveCopy(cfg, b)
 	}
+
+	// Detach checked attachments (highest index first so splicing stays valid), then add uploads.
+	var delIdx []int
+	for _, v := range r.Form["delatt"] {
+		if n, err := strconv.Atoi(v); err == nil {
+			delIdx = append(delIdx, n)
+		}
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(delIdx)))
+	for _, n := range delIdx {
+		if n >= 1 && n <= len(b.Attachments) {
+			detachAttachment(cfg, b, n-1)
+		}
+	}
+	attachUploads(cfg, b, r)
 
 	if err := store.Save(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -455,6 +512,32 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/?msg="+neturl.QueryEscape(fmt.Sprintf("Deleted [%d] %s", b.ID, b.Title)), http.StatusSeeOther)
+}
+
+// handleAttachment serves /attachment/<id>/<n> -- read-only, like handleArchive.
+func handleAttachment(w http.ResponseWriter, r *http.Request) {
+	parts := strings.SplitN(strings.TrimPrefix(r.URL.Path, "/attachment/"), "/", 2)
+	if len(parts) != 2 {
+		http.NotFound(w, r)
+		return
+	}
+	id, err1 := strconv.Atoi(parts[0])
+	n, err2 := strconv.Atoi(parts[1])
+	if err1 != nil || err2 != nil {
+		http.NotFound(w, r)
+		return
+	}
+	cfg, store, err := loadCfgAndStore()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	b := store.Find(id)
+	if b == nil || n < 1 || n > len(b.Attachments) {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.Join(cfg.attachmentsDir(), b.Attachments[n-1].File))
 }
 
 func handleArchive(w http.ResponseWriter, r *http.Request) {
@@ -548,6 +631,9 @@ ul.results li { padding: .6rem 0; border-bottom: 1px solid #e2e2e2; }
 .rowlinks a { color: #555; text-decoration: none; margin-right: .8rem; }
 .rowlinks a:hover { text-decoration: underline; }
 .inlineform { display: inline; }
+.attfieldset { border: 1px solid #ddd; border-radius: 4px; padding: .4rem .6rem; }
+.attfieldset legend { font-size: .85rem; color: #444; }
+.attlist { list-style: none; padding: 0; margin: 0; font-size: .85rem; display: flex; flex-direction: column; gap: .25rem; }
 .linklike { background: none; border: none; padding: 0; margin-right: .8rem; color: #b33; text-decoration: none; cursor: pointer; font: inherit; font-size: .8rem; }
 .linklike:hover { text-decoration: underline; }
 .pager { display: flex; justify-content: center; gap: 1rem; margin: 1rem 0; font-size: .9rem; }
@@ -567,13 +653,25 @@ var editBodyTmpl = template.Must(template.New("editBody").Parse(`
 <p><a href="/">&larr; back to search</a></p>
 <h2>Edit [{{.ID}}]</h2>
 {{if .Error}}<p class="flash error">{{.Error}}</p>{{end}}
-<form method="post" action="/edit/{{.ID}}" class="editform">
+<form method="post" action="/edit/{{.ID}}" class="editform" enctype="multipart/form-data">
   <label>Title<br><input type="text" name="title" value="{{.Title}}" required></label>
   <label>Description<br><input type="text" name="description" value="{{.Description}}"></label>
   <label>Tags<br><input type="text" name="tags" value="{{.TagsJoined}}" placeholder="comma or space separated"></label>
   <label>Folder<br><input type="text" name="folder" value="{{.Folder}}"></label>
   {{if not .HasMarkdown}}<label><input type="checkbox" name="markdown"> add markdown copy</label>{{end}}
   {{if not .HasArchive}}<label><input type="checkbox" name="archive"> add archive</label>{{end}}
+  {{if .Attachments}}
+  <fieldset class="attfieldset">
+    <legend>attachments</legend>
+    <ul class="attlist">
+    {{range .Attachments}}
+      <li><label><input type="checkbox" name="delatt" value="{{.Idx}}"> remove</label>
+        <a href="/attachment/{{$.ID}}/{{.Idx}}" target="_blank" rel="noopener">{{.Name}}</a></li>
+    {{end}}
+    </ul>
+  </fieldset>
+  {{end}}
+  <label>Attach files<br><input type="file" name="attachments" multiple></label>
   <button type="submit">Save</button>
 </form>
 <p class="rowlinks">
@@ -609,7 +707,7 @@ var searchBodyTmpl = template.Must(template.New("searchBody").Parse(`
 <details {{if .ShowAdd}}open{{end}}>
 <summary>+ Add bookmark</summary>
 {{if .DupWarning}}<p class="flash error">{{.DupWarning}}</p>{{end}}
-<form method="post" action="/add" class="addform">
+<form method="post" action="/add" class="addform" enctype="multipart/form-data">
   {{if .PendingConfirm}}<input type="hidden" name="confirm_dup" value="1">{{end}}
   <input type="text" name="url" placeholder="https://example.com" required value="{{.PrefillURL}}">
   <input type="text" name="description" placeholder="Description (optional)" value="{{.PrefillDescription}}">
@@ -617,6 +715,7 @@ var searchBodyTmpl = template.Must(template.New("searchBody").Parse(`
   <input type="text" name="folder" placeholder="folder (optional)" value="{{.PrefillFolder}}">
   <label><input type="checkbox" name="markdown" {{if .PrefillMarkdown}}checked{{end}}> markdown copy</label>
   <label><input type="checkbox" name="archive" {{if .PrefillArchive}}checked{{end}}> archive</label>
+  <label>attach files: <input type="file" name="attachments" multiple></label>
   <button type="submit">{{if .PendingConfirm}}Yes, add anyway{{else}}Add{{end}}</button>
 </form>
 </details>
@@ -626,7 +725,7 @@ var searchBodyTmpl = template.Must(template.New("searchBody").Parse(`
 <ul class="results">
 {{range .Results}}
 <li>
-  <div class="title"><a class="link" href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a>{{if .HasMarkdown}} <a class="badge" href="/markdown/{{.ID}}">md</a>{{end}}{{if .HasArchive}} <a class="badge" href="/archive/{{.ID}}">arc</a>{{end}}</div>
+  <div class="title"><a class="link" href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a>{{if .HasMarkdown}} <a class="badge" href="/markdown/{{.ID}}">md</a>{{end}}{{if .HasArchive}} <a class="badge" href="/archive/{{.ID}}">arc</a>{{end}}{{if .AttachCount}} <a class="badge" href="/edit/{{.ID}}" title="attachments">att{{if gt .AttachCount 1}}{{.AttachCount}}{{end}}</a>{{end}}</div>
   <div class="meta">{{.URL}} &middot; {{.Folder}}{{if .Tags}}{{range .Tags}} <span class="tag">#{{.}}</span>{{end}}{{end}} &middot; id {{.ID}}</div>
   {{if .Desc}}<div class="desc">{{.Desc}}</div>{{end}}
   <div class="rowlinks">

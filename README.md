@@ -41,6 +41,7 @@ liber <url> -a                 also write a full-page archive (requires 'single-
 liber <url> -md -a             both markdown and archive
 liber <url> -t tag-a tag-b     attach tags at creation time
 liber <url> -f subfold         save into a subfolder of the base directory
+liber <url> -at report.pdf     attach a local file (repeatable; see "Attachments")
 liber -s                       search/browse bookmarks, open or edit them (fzf if available)
 liber -sn / -su / -st / -sd / -sf
                                 same, but scoped to one field: title / url / tags / description / folder
@@ -55,6 +56,8 @@ liber -e <id> -t tag-a tag-b   set a bookmark's tags directly (non-interactive)
 liber -e <id> -f subfold       move a bookmark to a different folder (non-interactive)
 liber -e <id> -md              add a markdown copy if it doesn't have one yet
 liber -e <id> -a               add an archive if it doesn't have one yet
+liber -e <id> -at report.pdf   attach a file to an existing bookmark (repeatable)
+liber -e <id> -dt report.pdf   detach by name or number (deletes the saved copy)
 liber -e <ids> ...             <id> can be a range/list too: 1-3, 2,5,3, or 1-4,7-9 --
                                 applies the same flags (or interactive edit, one at a
                                 time) to each matched bookmark; see "Batch operations"
@@ -130,9 +133,10 @@ $XDG_CONFIG_HOME/liber/config.json    # usually ~/.config/liber/config.json
 Fields:
 
 - `base_dir` — root of your bookmark collection.
-- `html_dir` / `markdown_dir` / `archive_dir` — override any of the three
-  subdirectories individually; each defaults to `<base_dir>/html`,
-  `<base_dir>/markdown`, `<base_dir>/archive`.
+- `html_dir` / `markdown_dir` / `archive_dir` / `attachment_dir` — override
+  any of the four subdirectories individually; each defaults to
+  `<base_dir>/html`, `<base_dir>/markdown`, `<base_dir>/archive`,
+  `<base_dir>/attachments`.
 - `singlefile_cmd` — the executable used for `-a` archiving (default
   `single-file`).
 - `browser_cmd` — override the command used by `liber -s`'s "open"/"archive"
@@ -184,6 +188,7 @@ up rather than starting over.
   html/<folder>/0007-my-title.html
   markdown/<folder>/0007-my-title.md
   archive/<folder>/0007-my-title.html
+  attachments/0007-paper.pdf
   .liber/index.json
 ```
 
@@ -212,10 +217,11 @@ description-only via the plain prompt).
 Picking a bookmark opens an action menu:
 
 ```
-(o)pen  (m)arkdown  (a)rchive  (e)dit  (d)elete  (b)ack  (q)uit
+(o)pen  (m)arkdown  (a)rchive  attachmen(t)s  (e)dit  (d)elete  (b)ack  (q)uit
 ```
 
-`(m)` and `(a)` only appear when that bookmark actually has a markdown copy
+`(t)` always appears, and opens an attachments menu (open / add / rm — see
+"Attachments" below). `(m)` and `(a)` only appear when that bookmark actually has a markdown copy
 or archive — trying them anyway (e.g. by habit) just says so rather than
 erroring. `(o)` and `(a)` open in your browser (or `browser_cmd`, if set);
 `(m)` opens in your editor (`editor_cmd`, else `$VISUAL`, else `$EDITOR`,
@@ -243,6 +249,35 @@ from each archive with a lightweight, dependency-free HTML-to-text pass
 full parser, and each file is capped at 5MB scanned — fine for ordinary
 pages, but a search may take a moment on a large collection since every
 eligible archive is read fresh each time (there's no separate text index).
+
+## Attachments
+
+Beyond markdown copies and page archives, you can copy any local file onto a
+bookmark — a PDF paper, a downloaded dataset, a second snapshot of the page:
+
+```
+liber <url> -at paper.pdf       attach a file at creation (repeatable)
+liber -e <id> -at paper.pdf     attach to an existing bookmark
+liber -e <id> -dt paper.pdf     detach by name, or by the number shown in the menu
+liber -i                        the interactive prompts include an attachments menu
+liber -e <id>                   interactive edit opens the same attachments menu
+liber -s -> attachmen(t)s       the search picker offers the same menu per bookmark
+```
+
+Files are **copied** into `<base_dir>/attachments/` (renaming, moving, or
+deleting the original afterwards changes nothing), named
+`<id>-<slug>.<ext>`, and recorded on that bookmark's index entry exactly
+like its html/markdown/archive paths are. Attaching the same name twice is
+fine — the second copy gets a `-2` suffix. The `[att]` / `[attN]` badge in
+`liber -l`, `liber -s` and the web UI shows a bookmark has attachments and
+how many. The web UI can also attach (upload on the add/edit form), remove
+(checkbox on the edit form), and serve attachments for viewing.
+
+Deleting a bookmark deletes its attachments. `liber -r` treats them like
+markdown/archive files: assignments to files that vanished are dropped,
+orphaned ones are moved into `<base_dir>/unindexed/attachments/`, and
+renumbering renames them too. Attachment *contents* are not searched —
+`--deep` covers archive html only.
 
 ## Batch operations
 
@@ -279,10 +314,10 @@ end rather than aborting the rest of the batch.
 `liber -r` does two things, in order:
 
 **1. Clean up entries whose files were deleted outside liber.** Every
-bookmark's Markdown/Archive paths are recorded individually on that
-bookmark's own index entry when it's created (and kept in sync whenever you
-edit it) — liber never matches files across bookmarks by filename pattern.
-So:
+bookmark's Markdown/Archive/Attachment paths are recorded individually on
+that bookmark's own index entry when it's created (and kept in sync whenever
+you edit it) — liber never matches files across bookmarks by filename
+pattern. So:
 
 - If you delete a bookmark's `.html` file yourself (`rm`, a file manager,
   etc.) instead of through `liber -d`/`liber -s`, the index still points at
@@ -290,15 +325,16 @@ So:
 - `liber -r` checks every entry's recorded HTML path. If it's gone, that
   entry is dropped from the index — but its recorded Markdown/Archive files
   (if they're still there) are **moved, not deleted**, into
-  `<base_dir>/unindexed/markdown/...` and `<base_dir>/unindexed/archive/...`,
+  `<base_dir>/unindexed/markdown/...` and `<base_dir>/unindexed/archive/...`
+  (attachments likewise into `<base_dir>/unindexed/attachments/...`),
   preserving their original relative path.
 - Because each move follows that one bookmark's own recorded path rather
   than a glob/prefix match, a stray `0002-*.md` can never get relocated
   alongside, or confused with, some other id's `.html`/archive file —
   even if two bookmarks share a folder or similar-looking filenames.
 - Bookmarks whose HTML is still present are left alone; only truly-missing
-  Markdown/Archive references on those are cleared (there's nothing to move
-  since they're already fully gone).
+  Markdown/Archive/Attachment references on those are cleared (there's
+  nothing to move since they're already fully gone).
 
 **2. Renumber the survivors to close id gaps.** If you had ids 1–4 and
 deleted 3, `liber -l` would otherwise show 1, 2, 4 forever. `liber -r`
