@@ -1,6 +1,7 @@
 
-<div align = center><video src = "./Assets/liber-cli.mp4" controls width = 50%></video></div>
-<div align = center><video src = "./Assets/liber-webui.mp4" controls width = 50%></video></div>
+
+![Liber cli](https://github.com/naurias/liber/blob/main/Assets/liber-cli.mp4)
+![Liber webui](https://github.com/naurias/liber/blob/main/Assets/liber-webui.mp4)
 > [!Tip]
 > This readme also serves as liber's documentation. If you simply want to check basic usage, [see here](#usage-overview).
 
