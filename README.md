@@ -1,112 +1,152 @@
->[!Tip]
->This readme also serves as liber's documentation, if you simply want to check basic usage, [see here](#usage-overview)
+# liber
+
+> [!Tip]
+> This readme also serves as liber's documentation. If you simply want to check basic usage, [see here](#usage-overview).
+
 # Introduction
 
-Liber is a cross-platform, simple, private and local cli bookmark manager that saves bookmarks as browsable plain text HTML files, optionally  archives webpages and a markdown copy for bookmark's notes with configurable directories. It aslo has simple yet efficient webUI to work in browser. It uses simple json index (to not depend on database) to manage bookmarks behind the scenes.
+Liber is a cross-platform, simple, private and local CLI bookmark manager that saves bookmarks as browsable plain-text HTML files, optionally archives webpages and writes a markdown copy for bookmark-specific notes, with configurable directories. It also has a simple yet efficient web UI to work in the browser. It uses a simple JSON index (to avoid depending on a database) to manage bookmarks behind the scenes.
 
 <h2 style="text-align: center;">Available For</h2>
 <div style="display: flex; gap: 20px;"> <div style="flex: 1;" align= center >Linux</div> <div style="flex: 1;" align= center >MacOS</div> <div style="flex: 1;" align= center>Windows</div> </div>
 
-# Features 
-- Plain text html bookmarks
-- Tags and Directories, see [Design notes](#design-notes)
-- Markdown copy of bookmarks for personal notes and additional description. 
-	- You can simply store them as html and later create a markdown copy or archive later if you want to when editing a bookmark
-- WebUI to browse add and edit bookmarks 
-- Duplicate detection (tags, folder and bookmarks)
-- Full archive of webpages (requires single-file-cli)
-- Attcach files or related content with bookmarks 
-- Check whether a bookmark has an archive and markdown copy or not 
-- Powerful search and edit. Bulk management, deep search, missing archives. 
+# Features
+
+- Plain-text HTML bookmarks
+- Tags and directories, see [Design notes](#design-notes)
+- Markdown copy of bookmarks for personal notes and additional description
+  - You can simply store them as HTML and later create a markdown copy or archive when editing a bookmark
+- Web UI to browse, add, and edit bookmarks
+- Duplicate detection (tags, folder, and bookmarks)
+- Full archive of webpages (requires `single-file-cli`)
+- Attach files or related content to bookmarks
+- Check whether a bookmark has an archive, markdown copy, or attachments
+- Powerful search and edit: bulk management, deep search, missing archives
 - Configurable location
 - Import bookmarks from browser
-- Rules based automation of bookmarks into specific folders or tags 
-- Git integration for history and sync 
-- Profiles, each working independantly from other
+- Rule-based automation of bookmarks into specific folders or tags
+- Git integration for history and sync
+- Profiles, each working independently from the others
 
-# Installing 
+# Installing
+
 ## Dependencies
-### Install dependencies (Runtime)
-Liber itself has no dependencies but some features require:
-- [fzf](https://github.com/junegunn/fzf) (fuzzy finder), for live search
-- [single-file-cli](https://github.com/gildas-lormeau/single-file-cli) for full web page archive
-- git for history and syncing 
-### Build dependencies 
-To build liber from source you simply need 
+
+### Runtime dependencies
+
+Liber itself has no dependencies, but some features require:
+
+- [fzf](https://github.com/junegunn/fzf) — fuzzy finder, for live search
+- [single-file-cli](https://github.com/gildas-lormeau/single-file-cli) — for full web page archive
+- `git` — for history and syncing
+
+### Build dependencies
+
+To build liber from source you only need:
+
 - Go (version 1.22 or later)
 
-## Archlinux 
-- Install optional dependecies 
+## Arch Linux
+
+- Install the optional dependencies above
 - Download the package build from [latest releases](https://github.com/naurias/liber/releases/latest/download/PKGBUILD) and install it, or simply:
+
 ```sh
 wget https://github.com/naurias/liber/releases/latest/download/PKGBUILD
-makepkgs -si
+makepkg -si
 ```
 
-## NixOS 
-This repo provides flake to install it on your nixos system. 
-- To install it as flake add the repository to your flake in puts
-  ```
+## NixOS
+
+This repo provides a flake to install it on your NixOS system.
+
+- Add the repository to your flake inputs:
+
+  ```nix
   inputs = {
-	  liber.url = "github:naurias/liber";
-	  inputs.nixpkgs.follows = "nixpkgs";
+    liber.url = "github:naurias/liber";
+    liber.inputs.nixpkgs.follows = "nixpkgs";
   };
   ```
-  and install it either on system with `environment.pkgs` or with home-manager `home.packages`
+
+  and install it on your system with `environment.systemPackages` or with home-manager `home.packages`:
+
   ```nix
-  {config, pkgs, inputs ... }: {
-	  home.packages = [
-		  inputs.liber.packages.${pkgs.stdenv.hostPlatform}.default
-		  single-file-cli # optional
-		  fzf # optional
-	  ];
+  { config, pkgs, inputs, ... }: {
+    home.packages = [
+      inputs.liber.packages.${pkgs.system}.default
+      single-file-cli # optional
+      fzf              # optional
+    ];
   }
   ```
-  You can also test it on the go
+
+  You can also try it on the go:
+
   ```sh
-  nix shell github:naurias/liber # enter a shell with liber
-  # Or run binary directly 
+  nix shell github:naurias/liber   # enter a shell with liber
+  # or run the binary directly
   nix run github:naurias/liber
   ```
-  
->[!Note]
->the nix and arch builds don't ship with optinal dependencies you'd have to install/declare them on your own
-## Generic linux install 
-- Download the binary from [latest releases](https://github.com/naurias/liber/releases/latest) or download directly from [here](https://github.com/naurias/liber/releases/latest/download/liber)
-- Past the binary in your path
+
+> [!Note]
+> The Nix and Arch builds don't ship with optional dependencies; you'll have to install/declare them on your own.
+
+## Generic Linux install
+
+- Download the binary from [latest releases](https://github.com/naurias/liber/releases/latest) or directly from [here](https://github.com/naurias/liber/releases/latest/download/liber)
+- Place the binary in your `PATH`:
+
   ```sh
   /usr/local/bin
-  # or 
+  # or
   ~/.local/bin
   ```
-## Build from Source 
+
+## Build from Source
+
 Clone this repo and enter the directory:
+
 ```sh
 git clone https://github.com/naurias/liber.git
 cd liber
 ```
-use either go to build or make file (not both)
-To use go 
+
+Use either `go build` or the Makefile, not both.
+
+With `go`:
+
 ```sh
 go build -o liber .
-sudo mv liber /usr/bin/ #add it to the path
+sudo mv liber /usr/bin/   # add it to your PATH
 ```
-or use make file 
+
+or with the Makefile:
+
 ```sh
 make && sudo make install
 ```
-make sure you have optional dependencies if you want to use optional features 
-## Windows 
-- Download the `liber-setup.exe` from [latest releases] or use direct linke [here]
-- Install as you'd do with any other exe file
-- Open terminal and you can start using liber. If you want to use liber on terminal extensively on windows instead of using webUI `liber --serve` i'd recommend using windows terminal or [wezterm](https://wezterm.org/index.html)
+
+Make sure to install the optional dependencies if you want the optional features.
+
+## Windows
+
+- Download the `liber-setup.exe` from the [latest releases](https://github.com/naurias/liber/releases/latest) or use the [direct download link](https://github.com/naurias/liber/releases/latest/download/liber-setup.exe)
+- Install it as you would any other `.exe` file
+- Open a terminal and you can start using liber. If you plan to use liber on the terminal extensively on Windows instead of the web UI (`liber --serve`), I'd recommend using Windows Terminal or [wezterm](https://wezterm.org/index.html).
+
 ## MacOS
-- Install fzf and single-file-cli (either from theri respective github repos or homebres)
-- clone the repository or download the source tar from latest release 
-- Build using go and place the binary in your PATH
-# Usage 
+
+- Install fzf and `single-file-cli` (either from their respective GitHub repos or via Homebrew)
+- Clone the repository or download the source tarball from the latest release
+- Build using `go` and place the binary in your `PATH`
+
+# Usage
+
 ## Usage Overview
-If you don't want to go through every usage detail here is the TLDR;
+
+If you don't want to go through every usage detail, here is the TLDR:
+
 ```
 liber <url>                    save a bookmark
 liber <url> -i                 save interactively (prompts for description, tags, folder)
@@ -163,168 +203,232 @@ liber --serve --addr <host:port>
                                 use a different address (default 127.0.0.1:8080)
 
 ```
-## Detailed Usage 
-This section provides detailed usage and examples
 
-By default liber stores bookmarks in folder named Bookmarks created inside home folder. You can run empty command `liber` to list usage flags . 
+## Detailed Usage
+
+This section provides detailed usage and examples.
+
+By default liber stores bookmarks in a folder named `Bookmarks` created inside your home directory. You can run `liber` with no arguments to list usage flags.
+
 - **Create a bookmark**
+
   ```sh
   liber <url>
   ```
+
 - **Create a bookmark interactively**
+
   ```sh
   liber <url> -i
   ```
-  This opens a prompt if you want to edit title name, add tags and put bookmark in specific subdirectory. There are individual command for quick tag or folder edits (listed below) but this command allows you to interact while bookmark creation 
-- Create a bookmark along with **archive and or markdown copy**
+
+  This opens prompts to edit the title name, add tags, and put the bookmark in a specific subdirectory. There are individual commands for quick tag or folder edits (listed below), but this command lets you interact during bookmark creation.
+
+- **Create a bookmark along with an archive and/or markdown copy**
+
   ```sh
-  liber <url> -md # for markdown copy
-  liber <url> -a # for archiving 
+  liber <url> -md   # for markdown copy
+  liber <url> -a    # for archiving
   ```
-  This create a markdown copy and webpage archive for that url. Liber keeps archives and markdown copys in their respective folders of base bookmarks folder. The archive, markdown and bookmark are indexed and point to each other. For example a bookmark of google.com would have bookmark `indexnumber-google.com.html` in html folder while archive and markdown would live in archive and markdown folder respectively with same index. The index is dynamic and points to the bookmarks correctly even if one file is deleted the index would arrange them accordingly.
-- Create bookmark with **specific tags or in specific sub directory **
+
+  This creates a markdown copy and a webpage archive for that URL. Liber keeps archives and markdown copies in their respective folders under the base bookmarks folder. The archive, markdown, and bookmark are indexed and point to each other. For example, a bookmark of `google.com` would have `indexnumber-google.com.html` in the `html` folder, while the archive and markdown would live in the `archive` and `markdown` folders respectively with the same index. The index is dynamic and points to the bookmarks correctly; even if one file is deleted, the index rearranges them accordingly.
+
+- **Create a bookmark with specific tags or in a specific subdirectory**
+
   ```sh
-  liber <url> -t tag-a tag-b # Use space to spearate tags 
-  liber <url> -f folder-name # sub folder in which the bookmark goes 
+  liber <url> -t tag-a tag-b   # use space to separate tags
+  liber <url> -f folder-name   # subfolder the bookmark goes into
   ```
-- **Search** 
+
+- **Search**
+
   ```sh
-  liber -s 
+  liber -s
   ```
-  this flag allows you to search bookmarks interactively. If you have fzf and by default it would open a live preview otherwise a simple plain text prompt to allow you seach. By default the search would include everything i.e title, url, tags and folder. You can specify a search limited to tags, folders or title as . It also shows whether a bookmark has an archive or md copy or not 
-  ```sh 
-  liber -sn # title or name 
-  liber -su # url 
-  liber -st # to seach bookmarks with specific tags
-  liber -sf # bookmarks in specific folder
-  liber -sd # description
-  # Seach flags can be combined as 
-  liber -sfn # for folders and titles 
+
+  This flag lets you search bookmarks interactively. If you have fzf, by default it opens a live preview; otherwise a simple plain-text prompt. By default the search includes everything, i.e. title, URL, tags, and folder (the plain prompt also searches description by default). You can limit to a specific field with:
+
+  ```sh
+  liber -sn   # title or name
+  liber -su   # url
+  liber -st   # to search bookmarks with specific tags
+  liber -sf   # bookmarks in a specific folder
+  liber -sd   # description
+  # search flags can be combined:
+  liber -sfn  # for folders and titles
   ```
-  It would fall back to plain test legacy search if you don't have fzf or you can force it by
+
+  It falls back to the plain legacy search if you don't have fzf, or you can force it with:
+
   ```sh
   liber -sl
-  # or you can combine the search flags 
-  liber -sln # title or name 
-  liber -slu # url 
-  liber -slt # tags
-  liber -sld # description
-  liber -slf # folders
-  # Search flags can be combined as 
+  # or combine:
+  liber -sln  # title or name
+  liber -slu  # url
+  liber -slt  # tags
+  liber -sld  # description
+  liber -slf  # folders
+  # search flags can be combined:
   liber -sldf # for folders and descriptions
   ```
+
   Either way, picking a bookmark drops you into the open / edit / delete menu.
-  Liber can also perform deep search to search for text inside of archived pages 
+
+  Liber can also perform deep search to look for text inside archived pages:
+
   ```sh
-  liber -s --deep 
+  liber -s --deep
   ```
-  `--deep` follows the criter of -s i.e any search flag lie `s, sn, sl and so on` can have --deep flag
-- **List** all bookmarks with their id or index 
+
+  `--deep` follows the criteria of `-s`; any search flag like `s`, `sn`, `sl`, and so on, can be followed by `--deep`.
+
+- **List** all bookmarks with their id or index
+
   ```sh
   liber -l
   ```
-- **Edit** a bookmark (name, tag, folder, description or url).
+
+- **Edit** a bookmark (name, tag, folder, description, or URL):
+
   ```sh
-  liber -e <id> 
+  liber -e <id>
   ```
-  This allows you to edit a bookmark of given id. You can also edit bookmarks during search as selecting a bookmark during search `liber -s` can open a prompt whether to edit or not.  It also allows you to create a web archive or markdown of the specific bookmark if they aren't present. or you can edit something specific directly by:
+
+  This lets you edit a bookmark of the given id. You can also edit bookmarks during search: selecting a bookmark during `liber -s` opens a prompt asking whether to edit. It also lets you create a web archive or markdown copy of a specific bookmark if they aren't present. Or you can edit something specific directly:
+
   ```sh
-  liber -e <id> -t tag-a tag-b # this will create tag-a and tag-b for that bookmark
-  liber -e <id> -f folder-a # this will move bookmark to folder-a
+  liber -e <id> -t tag-a tag-b   # creates tag-a and tag-b for that bookmark
+  liber -e <id> -f folder-a      # moves the bookmark to folder-a
   ```
-- Add markdown or archive of bookmark that doesn't have 
+
+- **Add markdown or archive** of a bookmark that doesn't have one:
+
   ```sh
-  liber -e <id> -md # for markdown copy of that bookmark
-  liber -e <id> -a # for archive 
+  liber -e <id> -md   # for a markdown copy
+  liber -e <id> -a    # for an archive
   ```
-  
-  >[!Note]
-  >The `<ids>` can be a range as well. for example `liber -e 1-3 -md` will create a markdown copy of bookmarks 1-3 it can also be comma separated list `liber -e 1-5,7,9-11` 
-  >
-- **Delete** a bookmark.
+
+  > [!Note]
+  > The `<ids>` can be a range as well. For example, `liber -e 1-3 -md` will create a markdown copy of bookmarks 1–3; it can also be a comma-separated list: `liber -e 1-5,7,9-11`.
+
+- **Delete** a bookmark:
+
   ```sh
-  liber -d <id> # delete bookmark
+  liber -d <id>
   ```
-  the search flag `liber -s ` also opens up a prompt to delete bookmark as well.  **Just like editing the deletion id's can also be a range or comma separted list**
+
+  The search flag (`liber -s`) also opens a prompt to delete a bookmark. **Just like editing, the deletion ids can also be a range or comma-separated list.**
+
 - **Attachments**
+
   ```sh
-  liber <url> -at example-file # attach example-file to related bookmark
-  liber -e <id> -at example-file # attach example-file to selected bookmark 
+  liber <url> -at example-file   # attach example-file to the related bookmark
+  liber -e <id> -at example-file # attach example-file to the selected bookmark
   liber -e <id> -dt example-file # remove attachment
   ```
-  Liber allows attachments of files to the bookmarks with `-at` flag and their removal with `-dt` flag. Usefule for assossiating multiple archives related to bookmark or other related files 
-- Show config and base directories 
+
+  Liber lets you attach files to bookmarks with the `-at` flag and remove them with the `-dt` flag. Useful for associating multiple archives related to a bookmark, or other related files.
+
+- **Show config and base directories:**
+
   ```sh
-  liber config 
+  liber config
   ```
-  this would show where your config is and where bookmarks are stored 
-- **Import** 
+
+  This shows where your config is and where bookmarks are stored.
+
+- **Import:**
+
   ```sh
   liber --import <path>
   ```
-  Liber can import bookmarks from browser's exported bookmarks file where `<path>` is the location of that file. See details in [Importing Bookmarks](#Importing-Bookmarks) section below
-- **Tags and folder management** 
-  ```sh
-  liber --tags # list all tags and bookmarks in that tag (number)
-  liber --folders # list all folders 
-  liber --tags reaname <a> <b> # rename tag a to tag b, merge a to b if b is already present 
-  liber --tags delete <tag> # delete tag
-  liber --folders rename <a> <b> # same as tags 
-  liber --folder delete <folder> # delete folder and move their bookmarks to root 
-  ```
-  There's no separate "merge" command, renaming _onto_ a name that already exists  **is** the merge: if a bookmark already has both the old and new tag, the rename just drops the old one rather than creating a duplicate. The same idea applies to folders (renaming `work` to `personal` when `personal` already has bookmarks just combines them). Folder rename/delete affects subfolders too (`work/urgent` follows `work` when you rename or delete it) and physically moves the affected files, the same as editing a single bookmark's folder does. Tag rename/delete rewrites the affected html/markdown files in place so their content stays consistent with the index.
-- **History**
-  ```sh
-  liber --history # list bookmarks by most recently opened 
-  ```
-- **Automation/Rules**, see dedicated section [below](#automation)
-  ```sh
-  liber --auto add --match <s> --folder <f> --tag <t1 t2> 
-  # auto classify new bookmarks by url <s>
-  
-  liber --auto edit # edit rules 
-  liber --auto delete # delete rules 
-  libet --auto apply # apply rules
-  ```
-- **Sync** 
-  ```sh
-  liber --sync # sync if bookmarks directory a git repo
-  liber --sync -p # git push 
-  ```
-- **Profiles**: Liber also has profiles, By default there's just one collection, living directly under `base_dir`. If you want separate, fully independent collections say, `work` and `personal`, profiles give you that. see details [here](profiles).
-``` sh
-liber --profile                list profiles, with the active one marked (see "Profiles")
-liber --profile <name>         switch to <name>, creating it if it's new
-liber --profile default        switch back to the non-profile layout
-liber --profile delete <name>  stop tracking a profile (its data is untouched)
-```
-- **WebUI**
-  ```sh
-  liber --serve 
-  liber --serve --addr 127.0.0.1:8181 # use specific address for web server
-  ```
-  This opens a webui to manage bookmarks. Allows editing, searching and adding of bookmarks in browser window. By default it uses port 8080 of local host
 
->[!Note] Note
->The flags can be combined. For example `iber <url> -t tag-a -f folder-n` or `liber <url> -md -a` or `liber <url> -i -t news reading -f articles -md -a`
-### Indexing and Reindexing 
-Liber indexes bookmark id as simple json. They are id's that liber uses to identify and sync bookmarks, their markdown and archive copies. If you delete a bookmark the empty index would remain, adding further bookmarks would proceed without any problems but if you want to close the indices gap you can use:
+  Liber can import bookmarks from a browser's exported bookmarks file where `<path>` is the location of that file. See details in the [Importing Bookmarks](#importing-bookmarks) section below.
+
+- **Tags and folder management:**
+
+  ```sh
+  liber --tags                     # list all tags and the bookmarks in them (count)
+  liber --folders                  # list all folders
+  liber --tags rename <a> <b>      # rename tag a to b; merge a into b if b already exists
+  liber --tags delete <tag>        # delete a tag
+  liber --folders rename <a> <b>   # same as tags
+  liber --folders delete <folder>  # delete folder and move its bookmarks to root
+  ```
+
+  There's no separate "merge" command; renaming _onto_ a name that already exists **is** the merge: if a bookmark already has both the old and new tag, the rename just drops the old one rather than creating a duplicate. The same idea applies to folders (renaming `work` to `personal` when `personal` already has bookmarks just combines them). Folder rename/delete affects subfolders too (`work/urgent` follows `work` when you rename or delete it) and physically moves the affected files, the same as editing a single bookmark's folder does. Tag rename/delete rewrites the affected HTML/markdown files in place so their content stays consistent with the index.
+
+- **History:**
+
+  ```sh
+  liber --history   # list bookmarks by most recently opened
+  ```
+
+- **Automation / Rules**, see the dedicated section [below](#automation):
+
+  ```sh
+  liber --auto add --match <s> --folder <f> --tag <t1 t2>
+  # auto-classify new bookmarks whose URL contains <s>
+
+  liber --auto edit    # edit rules
+  liber --auto delete  # delete rules
+  liber --auto apply   # apply rules
+  ```
+
+- **Sync:**
+
+  ```sh
+  liber --sync     # commit if the bookmarks directory is a git repo
+  liber --sync -p  # git push
+  ```
+
+- **Profiles:** Liber also has profiles. By default there's just one collection, living directly under `base_dir`. If you want separate, fully independent collections — say, `work` and `personal` — profiles give you that. See details [here](#profiles).
+
+  ```sh
+  liber --profile                # list profiles, with the active one marked
+  liber --profile <name>         # switch to <name>, creating it if it's new
+  liber --profile default        # switch back to the non-profile layout
+  liber --profile delete <name>  # stop tracking a profile (its data is untouched)
+  ```
+
+- **WebUI:**
+
+  ```sh
+  liber --serve
+  liber --serve --addr 127.0.0.1:8181   # use a specific address
+  ```
+
+  This opens a web UI to manage bookmarks. It allows editing, searching, and adding bookmarks in a browser window. By default it uses port `8080` of `localhost`.
+
+> [!Note]
+> The flags can be combined. For example, `liber <url> -t tag-a -f folder-n` or `liber <url> -md -a` or `liber <url> -i -t news reading -f articles -md -a`.
+
+### Indexing and Reindexing
+
+Liber indexes bookmark ids in a simple JSON file. They are the ids that liber uses to identify and sync bookmarks, their markdown, archive, and attachment copies. If you delete a bookmark, the empty index slot remains, and adding further bookmarks proceeds without any problems; but if you want to close the id gaps you can use:
+
 ```sh
-liber -r 
+liber -r
 ```
-to reindex the bookmarks list. It would set the index straight and sync up copies. It also checks for mismatch copies. For example if a bookmark is deleted and their markdown or archives aren't (directly in path by user outside of liber). liber would move missmatched copies to unindexed folder. This way you won't lose archives even if you delete anything in folders. Details explained below under configuration.
+
+to reindex the bookmarks list. It straightens the index and syncs up copies. It also checks for mismatched copies. For example, if a bookmark is deleted and its markdown or archives aren't (deleted directly in the path by the user outside of liber), liber moves the mismatched copies to an `unindexed` folder. This way you won't lose archives even if you delete anything in folders. Details explained below under Configuration.
 
 ### Importing Bookmarks
-`liber --import <path>` reads a browser bookmark export. Folders in the export become folders in liber (nested folders become `Parent/Child`); Firefox's per-bookmark `TAGS` and description are picked up too. Each imported bookmark gets a normal html file, exactly as if you'd run `liber <url>` and pass `-md`/`-a` to also generate markdown/archives for every import, though for a large export that's slow (archiving in particular makes one `single-file` call per bookmark) and probably better done selectively afterward with `liber -e <id> -md`/`-a`.
+
+`liber --import <path>` reads a browser bookmark export. Folders in the export become folders in liber (nested folders become `Parent/Child`); Firefox's per-bookmark `TAGS` and description are picked up too. Each imported bookmark gets a normal HTML file, exactly as if you'd run `liber <url>`, and you can pass `-md`/`-a` to also generate markdown/archives for every import, though for a large export that's slow (archiving in particular makes one `single-file` call per bookmark) and probably better done selectively afterward with `liber -e <id> -md`/`-a`.
 
 Anything that normalizes to a URL you already have is skipped automatically (no per-item prompt, unlike adding one bookmark at a time). So re-running `--import` on a refreshed export from your browser won't pile up duplicates. Entries with no `HREF` are skipped too. Both counts are reported at the end.
 
 ### Sync
+
 `liber --sync` looks for a `.jj` or `.git` directory at or above `base_dir` and, if it finds one, commits the current state of your collection there (`liber --sync -p` also pushes afterward). It never initializes a repo itself. If there isn't one, it tells you and stops, since creating one unasked would be a strange thing for a bookmark tool to do. If `base_dir` is nested inside a larger repo (e.g. a dotfiles checkout), it still finds the right root.
 
-This is deliberately minimal: one commit, optionally one push, nothing that manages branches/bookmarks(jj)/remotes for you. Since everything liber writes is flat files and JSON, git or jj sync was already going to work without this command, `--sync` just saves you the two-or-three manual commands. 
+This is deliberately minimal: one commit, optionally one push, nothing that manages branches, jj bookmarks, or remotes for you. Since everything liber writes is flat files and JSON, git or jj sync was already going to work without this command; `--sync` just saves you the two-or-three manual commands.
+
 ### Automation
-Auto-classify bookmarks whose URL contains a given string, consider the exampl below:
+
+Auto-classify bookmarks whose URL contains a given string. Consider the example below:
+
 ```sh
 liber --auto add --match doxy --folder hot
 liber --auto add --match doxy --folder hot --tag important urgent
@@ -335,99 +439,114 @@ liber --auto delete <id>                      # remove a rule (doesn't undo what
 liber --auto apply                            # re-run every rule against existing bookmarks
 liber --auto apply <id>                       # re-run just one
 ```
-everything from `doxy.com` should always land in a `hot` folder.
-**Automation never overrides an explicit choice, and never re-opens a decision it’s already made.** Concretely:
 
-- Creating a bookmark with `-f somefolder` (or importing one that already has a folder from your browser) always wins, a folder rule only ever fills in an _empty_ folder. Tags still get added either way, since tags are additive rather than exclusive.
-- Adding a new rule immediately applies it to any existing bookmarks that match ( bookmarks created before the rule existed still get classified), but only bookmarks that don’t already have a folder. Anything already organized, by hand or by another rule is left alone.
-- **Once a bookmark has been classified (automatically or manually) and you later move it yourself, that move sticks.** Automation tracks which rules have already had their one chance at each bookmark, so re-running `--auto apply` or adding an unrelated new rule never revisits a decision that’s already been made, including ones automation itself made earlier.
-- Editing a rule updates its definition for future bookmarks; it does _not_ retroactively touch bookmarks it already classified unless you add `--reapply`. Even then, `--reapply` only advances a bookmark to the rule’s new value if the bookmark’s current folder still exactly matches what that same rule set it to last time, if you’ve moved it since, `--reapply` leaves it alone too.
+Everything from `doxy.com` should always land in a `hot` folder.
+
+**Automation never overrides an explicit choice, and never reopens a decision it's already made.** Concretely:
+
+- Creating a bookmark with `-f somefolder` (or importing one that already has a folder from your browser) always wins; a folder rule only ever fills in an _empty_ folder. Tags still get added either way, since tags are additive rather than exclusive.
+- Adding a new rule immediately applies it to any existing bookmarks that match (bookmarks created before the rule existed still get classified), but only bookmarks that don't already have a folder. Anything already organized, by hand or by another rule, is left alone.
+- **Once a bookmark has been classified (automatically or manually) and you later move it yourself, that move sticks.** Automation tracks which rules have already had their one chance at each bookmark, so re-running `--auto apply` or adding an unrelated new rule never revisits a decision that's already been made, including ones automation itself made earlier.
+- Editing a rule updates its definition for future bookmarks; it does _not_ retroactively touch bookmarks it already classified unless you add `--reapply`. Even then, `--reapply` only advances a bookmark to the rule's new value if the bookmark's current folder still exactly matches what that same rule set it to last time; if you've moved it since, `--reapply` leaves it alone too.
 - Deleting a rule removes the rule only; bookmarks it already classified keep their folder/tags exactly as they are.
 
 ### Web UI
 
 `liber --serve` starts a local web UI at `http://127.0.0.1:8080` for searching, adding, editing, and deleting bookmarks.
 
->[!Tip]
->Add a bookmarklet to your browser’s toolbar with this as the URL (adjust the port if you used `--addr`) to quickly bookmark whatever page you’re currently on:
+> [!Tip]
+> Add a bookmarklet to your browser's toolbar with this as the URL (adjust the port if you used `--addr`) to quickly bookmark whatever page you're currently on:
+>
 > ```
->javascript:location.href='http://127.0.0.1:8080/?prefill='+encodeURIComponent(location.href)
->```
+> javascript:location.href='http://127.0.0.1:8080/?prefill='+encodeURIComponent(location.href)
+> ```
 
-It reflects whichever profile is active, and even picks up a profile switch made via the CLI in another terminal on its next request, no restart needed.
+It reflects whichever profile is active, and even picks up a profile switch made via the CLI in another terminal on its next request — no restart needed.
 
-Once a search’s result count passes 500, simple `?page=N` pagination appears automatically (no controls at all below that). A scoped or deep search’s page-forward/back links carry the same query along, so paging through a filtered search keeps it filtered.
-# Configuration 
-By default or on first run, liber writes a default config to:
+Once a search's result count passes 500, simple `?page=N` pagination appears automatically (no controls at all below that). A scoped or deep search's page-forward/back links carry the same query along, so paging through a filtered search keeps it filtered.
+
+# Configuration
+
+On first run, liber writes a default config to:
+
 ```sh
 $XDG_CONFIG_HOME/liber/config.json    # usually ~/.config/liber/config.json
 ```
-The configuration is simple and allows you to define your bookmarks directory and single file command (useful if you are using a different single command name or path)
+
+The configuration is simple and lets you define your bookmarks directory and the `single-file` command (useful if you're using a different command name or path):
+
 ```json
 {
   "base_dir": "/home/you/Bookmarks",
-  "singlefile_browser_path": "firefox",
   "singlefile_cmd": "single-file"
+  // optionally add "singlefile_browser_path": "firefox"
 }
 ```
 
 Fields:
+
 - `base_dir`: root of your bookmark collection.
 - `html_dir` / `markdown_dir` / `archive_dir` / `attachment_dir`: override any of the four subdirectories individually; each defaults to `<base_dir>/html`, `<base_dir>/markdown`, `<base_dir>/archive`, `<base_dir>/attachments`.
 - `singlefile_cmd`: the executable used for `-a` archiving (default `single-file`).
-- `singlefile_browser_path`:browser executable handed to single-file as --browser-executable-path on every archive run (leave unset to let single-file find the browser itself). Useful when single-file can't locate e.g. Brave: "singlefile_browser_path": "/usr/bin/brave".
-- `browser_cmd`:  override the command used by `liber -s`'s "open"/"archive" actions (defaults to `xdg-open` / `open` / the Windows shell handler, by OS).
-- `editor_cmd`:  override the command used by `liber -s`'s "markdown" action (defaults to `$VISUAL`, then `$EDITOR`, then the OS's default file association, in that order).
+- `singlefile_browser_path`: browser executable handed to `single-file` as `--browser-executable-path` on every archive run (leave unset to let `single-file` find the browser itself). Useful when `single-file` can't locate e.g. Brave: `"singlefile_browser_path": "/usr/bin/brave"`.
+- `browser_cmd`: override the command used by `liber -s`'s "open"/"archive" actions (defaults to `xdg-open` / `open` / the Windows shell handler, by OS).
+- `editor_cmd`: override the command used by `liber -s`'s "markdown" action (defaults to `$VISUAL`, then `$EDITOR`, then the OS's default file association, in that order).
 
 Run `liber config` to see the resolved paths.
->[!Warning]
->If archives are not being created make sure you have dependecies installed and browser path is set. The browser path can either be a command `firefox` or path to actual browser `/usr/bin/firefox`
 
-## Layout Example 
+>[!Warning]
+>If liber is not archiving bookmarks, make sure all dependencies are installed and `"singlefile_browser_path"` option is set in `config.json`
+
+## Layout Example
+
 ```
 <base_dir>/
   html/<folder>/0007-my-title.html
   markdown/<folder>/0007-my-title.md
   archive/<folder>/0007-my-title.html
+  attachments/0007-paper.pdf
   .liber/index.json
 ```
 
-Every bookmark's files are prefixed with its numeric id, so `liber -l` / `liber -s` results always line up with what's on disk. Editing a bookmark's folder moves its files; editing anything else just rewrites them in place. Editing (interactively, or with `-md`/`-a`) can also _add_ a markdown copy or archive that wasn't there before — it reuses the bookmark's original id-slug basename (taken from its html file) so the new file lines up with the others exactly, even if the title has changed since creation. It only ever adds what's missing — an existing markdown copy or archive is left alone, not regenerated.
+Every bookmark's files are prefixed with its numeric id, so `liber -l` / `liber -s` results always line up with what's on disk. Editing a bookmark's folder moves its files; editing anything else just rewrites them in place. Editing (interactively, or with `-md`/`-a`) can also _add_ a markdown copy or archive that wasn't there before — it reuses the bookmark's original id-slug basename (taken from its HTML file) so the new file lines up with the others exactly, even if the title has changed since creation. It only ever adds what's missing — an existing markdown copy or archive is left alone, not regenerated.
 
 ## Profiles
-A profile is just a subfolder of `base_dir`, `liber --profile work` makes `<base_dir>/work/` the effective base dir for everything (`html/`, `markdown/`, `archive/`, `.liber/index.json`) until you switch again. Each profile has its own book1marks, ids, tags, folders, and [automations](#automations) , completely independent; there's currently no way to search or move bookmarks across profiles, only to list which ones exist and switch between them. `active_profile` is stored in `config.json`, which is otherwise shared (things like `editor_cmd`/ `browser_cmd` apply regardless of which profile is active).
+
+A profile is just a subfolder of `base_dir`. `liber --profile work` makes `<base_dir>/work/` the effective base dir for everything (`html/`, `markdown/`, `archive/`, `attachments/`, `.liber/index.json`) until you switch again. Each profile has its own bookmarks, ids, tags, folders, and [automations](#automation), completely independent; there's currently no way to search or move bookmarks across profiles, only to list which ones exist and switch between them. `active_profile` is stored in `config.json`, which is otherwise shared (things like `editor_cmd` / `browser_cmd` apply regardless of which profile is active).
 
 Nothing changes if you never touch `--profile` — the original flat layout (`base_dir/html`, etc.) is exactly what "no active profile" means, so existing collections are completely unaffected.
 
 `--profile delete` only stops tracking a profile in the list shown by `--profile`. It never touches the folder or its bookmarks, and refuses to delete the currently active profile (switch away first). Switching to a name you'd previously deleted-from-tracking picks its existing data back up rather than starting over.
+
 ## Reindexing
 
 `liber -r` does two things, in order:
 
-**1. Clean up entries whose files were deleted outside liber.** Every bookmark's Markdown/Archive paths are recorded individually on that bookmark's own index entry when it's created (and kept in sync whenever you edit it), liber never matches files across bookmarks by filename pattern. So:
+**1. Clean up entries whose files were deleted outside liber.** Every bookmark's Markdown/Archive/Attachment paths are recorded individually on that bookmark's own index entry when it's created (and kept in sync whenever you edit it) — liber never matches files across bookmarks by filename pattern. So:
 
-- If you delete a bookmark's `.html` file yourself (`rm`, a file manager, etc.) instead of through `liber -d`/`liber -s`, the index still points at it and thinks it exists.
-- `liber -r` checks every entry's recorded HTML path. If it's gone, that entry is dropped from the index, but its recorded Markdown/Archive files (if they're still there) are **moved, not deleted**, into `<base_dir>/unindexed/markdown/...` and `<base_dir>/unindexed/archive/...`, preserving their original relative path.
-- Because each move follows that one bookmark's own recorded path rather than a glob/prefix match, a stray `0002-*.md` can never get relocated alongside, or confused with, some other id's `.html`/archive file, even if two bookmarks share a folder or similar-looking filenames.
-- Bookmarks whose HTML is still present are left alone; only truly-missing Markdown/Archive references on those are cleared (there's nothing to move since they're already fully gone).
+- If you delete a bookmark's `.html` file yourself (`rm`, a file manager, etc.) instead of through `liber -d` / `liber -s`, the index still points at it and thinks it exists.
+- `liber -r` checks every entry's recorded HTML path. If it's gone, that entry is dropped from the index — but its recorded Markdown/Archive/Attachment files (if they're still there) are **moved, not deleted**, into `<base_dir>/unindexed/markdown/...`, `<base_dir>/unindexed/archive/...`, and `<base_dir>/unindexed/attachments/...`, preserving their original relative path.
+- Because each move follows that one bookmark's own recorded path rather than a glob/prefix match, a stray `0002-*.md` can never get relocated alongside, or confused with, some other id's `.html`/archive file — even if two bookmarks share a folder or similar-looking filenames.
+- Bookmarks whose HTML is still present are left alone; only truly-missing Markdown/Archive/Attachment references on those are cleared (there's nothing to move since they're already fully gone).
 
-**2. Renumber to close id gaps.** If you had ids 1–4 and deleted 3, `liber -l` would otherwise show 1, 2, 4 forever. `liber -r` renumbers the remainder to 1, 2, 3, in their existing order, it's a gap-closing compaction, not an alphabetical or any other kind of sort. Since ids are embedded in filenames (`0004-...` → `0003-...`), this physically renames each affected bookmark's html/markdown/archive files to match. That rename is done in two passes, every affected file is moved to a temporary staging name first, and only once all of them are staged does anything land on its final numbered name, so a bookmark moving into a lower id slot can never collide with, or get confused with, another bookmark's files, no matter how many ids shift in the same run.
+**2. Renumber to close id gaps.** If you had ids 1–4 and deleted 3, `liber -l` would otherwise show 1, 2, 4 forever. `liber -r` renumbers the remainder to 1, 2, 3, in their existing order — it's a gap-closing compaction, not an alphabetical or any other kind of sort. Since ids are embedded in filenames (`0004-...` → `0003-...`), this physically renames each affected bookmark's HTML/markdown/archive/attachment files to match. That rename is done in two passes: every affected file is moved to a temporary staging name first, and only once all of them are staged does anything land on its final numbered name — so a bookmark moving into a lower id slot can never collide with, or get confused with, another bookmark's files, no matter how many ids shift in the same run.
 
 Safe to run any time. Step 1 never touches a bookmark whose HTML file is still there and never deletes anything outright, and step 2 only ever renames files, never their content.
 
-
-
 # Design notes
-## Why tags and folders both
-The main reason is to make bookmarks organized even outside the use of liber 
 
-Tags are useful for identification and classification of bookmarks pair them with folders it allows clean management. Folders can be used for per project or website based classification and tags to mark them for their relevance. It also prevent cluttering the bookmarks with too many tags and folder can provide a higher level domain for classifcation. For example a folder for a project can classify bookmarks cleanly while still having tags like study, important and so on. While true you can tag them on per project basis as well but liber is meant to be used as general bookmark manager that allows easy bookmark navigation even when you're exploring your bookmarks outside of liber
+## Why tags and folders both
+
+The main reason is to keep bookmarks organized even outside the use of liber.
+
+Tags are useful for identification and classification of bookmarks; pairing them with folders allows clean management. Folders can be used for per-project or website-based classification, and tags mark them for relevance. This prevents cluttering the bookmarks with too many tags, and a folder can provide a higher-level domain for classification. For example, a folder for a project can classify bookmarks cleanly while still having tags like `study`, `important`, and so on. While it's true you could tag them on a per-project basis as well, liber is meant to be used as a general bookmark manager that allows easy bookmark navigation even when you're exploring your bookmarks outside of liber.
 
 ## Markdown Copy
-Markdown copy is not meant to be whole html conversion or webpage contents of a url. It is simply meant to add personal notes, additional description, or your own personal bookmark specific content into it. For example you can explain what were you looking or what did you research in you markdown copy of that bookmark. For the purpose of archiving webpage single-file fills that role, so markdown has no need to to copy the contents of webpage  
 
-## Why not a Database for Indexing 
+A markdown copy is not meant to be a whole HTML conversion or webpage contents of a URL. It is simply meant to add personal notes, additional description, or your own bookmark-specific content into it. For example, you can explain what you were looking for or what you researched in your markdown copy of that bookmark. For the purpose of archiving a webpage, `single-file` fills that role, so markdown has no need to copy the contents of the webpage.
 
-The main reason is to keep it simple and plain go is fully able to fulfill this project's need. The indexing is fully solvable in plain Go, so there wasn't a technical need to bring in a database.  Liber is meant to be used as local simple cli bookmark manager. If project becomes too large for plain go to handle indices or isn't providing reasonable performance with it then it could be considered in future however, the goal is meant to keep it simple and exploitable even outside the use of Liber 
+## Why not a Database for Indexing
 
-Sticking with flat JSON + files also keeps the project at zero external dependencies, keeps the whole collection readable/diffable/greppable and easy to back up or sync with git, and avoids either a CGO build dependency.
+The main reason is to keep it simple: plain Go is fully able to fulfill this project's needs. The indexing is fully solvable in plain Go, so there wasn't a technical need to bring in a database. Liber is meant to be a local simple CLI bookmark manager. If the project becomes too large for plain Go to handle indices, or isn't providing reasonable performance with it, then it could be considered in the future; however, the goal is to keep it simple and explorable even outside the use of liber.
+
+Sticking with flat JSON + files also keeps the project at zero external dependencies, keeps the whole collection readable / diffable / greppable, easy to back up or sync with git, and avoids a CGO build dependency.

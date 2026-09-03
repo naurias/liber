@@ -19,7 +19,7 @@
 
           vendorHash = null;
 
-          ldflags = [ "-X main.Version=0.6.0" ];
+          ldflags = [ "-X main.Version=0.6.1" ];
           buildInputs = [ pkgs.fzf pkgs.single-file-cli ];
 
 
