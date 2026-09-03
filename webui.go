@@ -582,9 +582,15 @@ func handleMarkdown(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `<!DOCTYPE html><html><head><meta charset="utf-8"><title>%s</title>
-<style>body{font-family:ui-monospace,monospace;max-width:800px;margin:2rem auto;padding:0 1rem;white-space:pre-wrap;word-wrap:break-word;}</style>
+<script>%s</script>
+<style>
+:root, html[data-theme=light] { --bg: #fbf1c7; --fg: #3c3836; --link: #076678; color-scheme: light; }
+html[data-theme=dark] { --bg: #282828; --fg: #ebdbb2; --link: #83a598; color-scheme: dark; }
+body { font-family: ui-monospace, monospace; max-width: 800px; margin: 2rem auto; padding: 0 1rem; white-space: pre-wrap; word-wrap: break-word; color: var(--fg); background: var(--bg); }
+a { color: var(--link); }
+</style>
 </head><body><p><a href="/">&larr; back</a></p><pre>%s</pre></body></html>`,
-		template.HTMLEscapeString(b.Title), template.HTMLEscapeString(string(data)))
+		template.HTMLEscapeString(b.Title), themeInitScript, template.HTMLEscapeString(string(data)))
 }
 
 func renderSearchPage(w http.ResponseWriter, data searchPageData) {
@@ -600,53 +606,105 @@ func renderSearchPage(w http.ResponseWriter, data searchPageData) {
 	}{"liber", template.HTML(buf.String())})
 }
 
+// Gruvbox light is the default; html[data-theme=dark] (set by the theme
+// scripts in layoutTmpl) overrides every variable.
 const pageCSS = `
+:root, html[data-theme=light] {
+  --bg: #fbf1c7; --fg: #3c3836; --fg-soft: #504945; --muted: #7c6f64;
+  --surface: #f2e5bc; --surface2: #ebdbb2;
+  --border: #d5c4a1; --border-strong: #bdae93;
+  --link: #076678; --tag: #af3a03; --danger: #cc241d;
+  --ok-bg: #e4e3bf; --ok-border: #79740e;
+  --err-bg: #f6dfe1; --err-border: #cc241d;
+  color-scheme: light;
+}
+html[data-theme=dark] {
+  --bg: #282828; --fg: #ebdbb2; --fg-soft: #d5c4a1; --muted: #a89984;
+  --surface: #3c3836; --surface2: #504945;
+  --border: #504945; --border-strong: #665c54;
+  --link: #83a598; --tag: #fe8019; --danger: #fb4934;
+  --ok-bg: #2e3324; --ok-border: #b8bb26;
+  --err-bg: #382320; --err-border: #fb4934;
+  color-scheme: dark;
+}
 * { box-sizing: border-box; }
-body { font-family: -apple-system, system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; background: #fafafa; line-height: 1.5; }
+body { font-family: -apple-system, system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: var(--fg); background: var(--bg); line-height: 1.5; }
 h1 { font-size: 1.3rem; margin-bottom: 1rem; }
 h1 a { color: inherit; text-decoration: none; }
 h2 { font-size: 1.1rem; }
 .searchform { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin-bottom: .75rem; }
-.searchform input[type=text] { flex: 1; min-width: 200px; padding: .4rem .6rem; border: 1px solid #ccc; border-radius: 4px; }
-.searchform label { font-size: .85rem; color: #444; white-space: nowrap; }
-button { padding: .4rem .8rem; border: 1px solid #888; background: #eee; border-radius: 4px; cursor: pointer; }
-details { margin: 1rem 0; border: 1px solid #ddd; border-radius: 4px; padding: .5rem .75rem; background: #fff; }
+.searchform input[type=text] { flex: 1; min-width: 200px; padding: .4rem .6rem; background: var(--surface2); color: var(--fg); border: 1px solid var(--border-strong); border-radius: 4px; }
+.searchform label { font-size: .85rem; color: var(--fg-soft); white-space: nowrap; }
+button { padding: .4rem .8rem; border: 1px solid var(--border-strong); background: var(--surface2); color: var(--fg); border-radius: 4px; cursor: pointer; }
+details { margin: 1rem 0; border: 1px solid var(--border); border-radius: 4px; padding: .5rem .75rem; background: var(--surface); }
 summary { cursor: pointer; font-weight: 600; }
 .addform, .editform { display: flex; flex-direction: column; gap: .5rem; margin-top: .75rem; max-width: 480px; }
-.addform input[type=text], .editform input[type=text] { padding: .4rem .6rem; border: 1px solid #ccc; border-radius: 4px; }
-.editform label { font-size: .85rem; color: #444; }
-.flash { background: #eef7ee; border: 1px solid #bde0bd; padding: .5rem .75rem; border-radius: 4px; margin: .5rem 0; }
-.flash.error { background: #fdeeee; border-color: #e0bdbd; }
-.confirmbox { background: #fdeeee; border: 1px solid #e0bdbd; padding: .5rem .75rem; border-radius: 4px; margin: .5rem 0; display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
-.count { color: #777; font-size: .85rem; }
+.addform input[type=text], .editform input[type=text] { padding: .4rem .6rem; background: var(--surface2); color: var(--fg); border: 1px solid var(--border-strong); border-radius: 4px; }
+.editform label { font-size: .85rem; color: var(--fg-soft); }
+.flash { background: var(--ok-bg); border: 1px solid var(--ok-border); padding: .5rem .75rem; border-radius: 4px; margin: .5rem 0; }
+.flash.error { background: var(--err-bg); border-color: var(--err-border); }
+.confirmbox { background: var(--err-bg); border: 1px solid var(--err-border); padding: .5rem .75rem; border-radius: 4px; margin: .5rem 0; display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+.count { color: var(--muted); font-size: .85rem; }
 ul.results { list-style: none; padding: 0; }
-ul.results li { padding: .6rem 0; border-bottom: 1px solid #e2e2e2; }
-.title a.link { font-weight: 600; color: #0b5fff; text-decoration: none; }
+ul.results li { padding: .6rem 0; border-bottom: 1px solid var(--border); }
+.title a.link { font-weight: 600; color: var(--link); text-decoration: none; }
 .title a.link:hover { text-decoration: underline; }
-.badge { font-size: .7rem; background: #eee; padding: .05rem .4rem; border-radius: 999px; color: #555; text-decoration: none; margin-left: .3rem; }
-.meta { font-size: .8rem; color: #777; margin-top: .15rem; }
-.tag { color: #a06a00; }
-.desc { font-size: .85rem; color: #333; margin-top: .2rem; }
+.badge { font-size: .7rem; background: var(--surface2); padding: .05rem .4rem; border-radius: 999px; color: var(--fg-soft); text-decoration: none; margin-left: .3rem; }
+.meta { font-size: .8rem; color: var(--muted); margin-top: .15rem; }
+.tag { color: var(--tag); }
+.desc { font-size: .85rem; color: var(--fg-soft); margin-top: .2rem; }
 .rowlinks { font-size: .8rem; margin-top: .25rem; }
-.rowlinks a { color: #555; text-decoration: none; margin-right: .8rem; }
+.rowlinks a { color: var(--muted); text-decoration: none; margin-right: .8rem; }
 .rowlinks a:hover { text-decoration: underline; }
 .inlineform { display: inline; }
-.attfieldset { border: 1px solid #ddd; border-radius: 4px; padding: .4rem .6rem; }
-.attfieldset legend { font-size: .85rem; color: #444; }
+.attfieldset { border: 1px solid var(--border); border-radius: 4px; padding: .4rem .6rem; }
+.attfieldset legend { font-size: .85rem; color: var(--fg-soft); }
 .attlist { list-style: none; padding: 0; margin: 0; font-size: .85rem; display: flex; flex-direction: column; gap: .25rem; }
-.linklike { background: none; border: none; padding: 0; margin-right: .8rem; color: #b33; text-decoration: none; cursor: pointer; font: inherit; font-size: .8rem; }
+.attlist a { color: var(--link); text-decoration: none; }
+.attlist a:hover { text-decoration: underline; }
+.linklike { background: none; border: none; padding: 0; margin-right: .8rem; color: var(--danger); text-decoration: none; cursor: pointer; font: inherit; font-size: .8rem; }
 .linklike:hover { text-decoration: underline; }
 .pager { display: flex; justify-content: center; gap: 1rem; margin: 1rem 0; font-size: .9rem; }
-.pager .disabled { color: #bbb; }
+.pager .disabled { color: var(--muted); }
+.pager a { color: var(--link); text-decoration: none; }
+.themetoggle { position: fixed; top: .8rem; right: .8rem; z-index: 10; width: 2.1rem; height: 2.1rem; padding: 0; border-radius: 999px; background: var(--surface2); color: var(--fg); border: 1px solid var(--border-strong); cursor: pointer; font-size: 1rem; line-height: 1; }
 `
 
+// Sets the theme before first paint (avoids a light flash in dark mode):
+// stored choice in localStorage wins, else the OS preference.
+const themeInitScript = `(function(){
+var t = null;
+try { t = localStorage.getItem('liber-theme'); } catch (e) {}
+if (t !== 'light' && t !== 'dark') {
+  t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+}
+document.documentElement.setAttribute('data-theme', t);
+})();`
+
+// Wires the toggle button: flip the attribute, persist, repaint the glyph.
+const themeToggleScript = `(function(){
+var b = document.getElementById('themetoggle');
+if (!b) return;
+var cur = function(){ return document.documentElement.getAttribute('data-theme') || 'light'; };
+var paint = function(){ b.textContent = cur() === 'dark' ? '☀' : '☾'; };
+b.addEventListener('click', function(){
+  var t = cur() === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  try { localStorage.setItem('liber-theme', t); } catch (e) {}
+  paint();
+});
+paint();
+})();`
+
 var layoutTmpl = template.Must(template.New("layout").Parse(`<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>{{.Title}}</title><style>` + pageCSS + `</style></head>
+<html><head><meta charset="utf-8"><title>{{.Title}}</title><script>` + themeInitScript + `</script><style>` + pageCSS + `</style></head>
 <body>
+<button id="themetoggle" class="themetoggle" type="button" title="Toggle light/dark theme" aria-label="Toggle light/dark theme"></button>
 <div class="wrap">
 <h1><a href="/">liber</a></h1>
 {{.Body}}
 </div>
+<script>` + themeToggleScript + `</script>
 </body></html>`))
 
 var editBodyTmpl = template.Must(template.New("editBody").Parse(`
