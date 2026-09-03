@@ -1,7 +1,13 @@
 
 
-![Liber cli](https://github.com/naurias/liber/blob/main/Assets/liber-cli.mp4)
-![Liber webui](https://github.com/naurias/liber/blob/main/Assets/liber-webui.mp4)
+
+
+https://github.com/user-attachments/assets/c34ab3aa-2a9c-405b-a1dd-4c2bd4571f2e
+https://github.com/user-attachments/assets/4d88bb5d-4796-4270-a35e-2cc488221da2
+
+
+
+
 > [!Tip]
 > This readme also serves as liber's documentation. If you simply want to check basic usage, [see here](#usage-overview).
 
