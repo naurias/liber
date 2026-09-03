@@ -14,12 +14,12 @@
       {
         packages.default = pkgs.buildGoModule {
           pname = "liber";
-          version = "0.6.1";
+          version = "0.6.3";
           src = ./.;
 
           vendorHash = null;
 
-          ldflags = [ "-X main.Version=0.6.1" ];
+          ldflags = [ "-X main.Version=0.6.3" ];
           buildInputs = [ pkgs.fzf pkgs.single-file-cli ];
 
 
