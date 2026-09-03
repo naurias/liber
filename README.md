@@ -160,10 +160,13 @@ Make sure to install the optional dependencies if you want the optional features
 - Download the `liber-setup.exe` from the [latest releases](https://github.com/naurias/liber/releases/latest) or use the [direct download link](https://github.com/naurias/liber/releases/latest/download/liber-setup.exe)
 - Install it as you would any other `.exe` file
 - Open a terminal and you can start using liber. If you plan to use liber on the terminal extensively on Windows instead of the web UI (`liber --serve`), I'd recommend using Windows Terminal or [wezterm](https://wezterm.org/index.html).
+- In terminal run `liber config` to find the config directory and set it up as you see fit. See [Configuration](#configuration)
+- In windows make sure to set `singlefile_browser_path` to something like `firefox.exe` or `C:\Program Files...` accordingly.
+- Although it should work by default but you may have to set `singlefile_cmd` to `single-file.exe` if it doesn't work by default.
 
 ## MacOS
 
-- Install fzf and `single-file-cli` (either from their respective GitHub repos or via Homebrew)
+- Install `fzf` and `single-file-cli` (either from their respective GitHub repos or via Homebrew)
 - Clone the repository or download the source tarball from the latest release
 - Build using `go` and place the binary in your `PATH`
 
