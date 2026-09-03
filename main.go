@@ -254,6 +254,9 @@ func runConfigCmd(args []string) error {
 	fmt.Println("archive_dir    ", cfg.archiveDir())
 	fmt.Println("attachment_dir ", cfg.attachmentsDir())
 	fmt.Println("singlefile_cmd ", cfg.SingleFileCmd)
+	if cfg.SingleFileBrowserPath != "" {
+		fmt.Println("singlefile_browser_path ", cfg.SingleFileBrowserPath)
+	}
 	if cfg.BrowserCmd != "" {
 		fmt.Println("browser_cmd   ", cfg.BrowserCmd)
 	}
