@@ -15,7 +15,8 @@ import (
 )
 
 // runSingleFile shells out to single-file (https://github.com/gildas-lormeau/single-file-cli).
-func runSingleFile(cmdName, url, outPath string) error {
+func runSingleFile(cfg Config, url, outPath string) error {
+	cmdName := cfg.SingleFileCmd
 	if cmdName == "" {
 		cmdName = "single-file"
 	}
@@ -25,7 +26,12 @@ func runSingleFile(cmdName, url, outPath string) error {
 	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
 		return err
 	}
-	cmd := exec.Command(cmdName, url, outPath)
+	args := []string{}
+	if cfg.SingleFileBrowserPath != "" {
+		args = append(args, "--browser-executable-path="+cfg.SingleFileBrowserPath)
+	}
+	args = append(args, url, outPath)
+	cmd := exec.Command(cmdName, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		msg := strings.TrimSpace(string(out))

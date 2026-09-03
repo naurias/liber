@@ -20,6 +20,10 @@ type Config struct {
 	// SingleFileCmd: https://github.com/gildas-lormeau/single-file-cli
 	SingleFileCmd string `json:"singlefile_cmd,omitempty"`
 
+	// SingleFileBrowserPath is passed to single-file as --browser-executable-path
+	// when set (single-file can't always find the browser on its own).
+	SingleFileBrowserPath string `json:"singlefile_browser_path,omitempty"`
+
 	// BrowserCmd overrides the -s "open" command (default: xdg-open/open/start).
 	BrowserCmd string `json:"browser_cmd,omitempty"`
 
