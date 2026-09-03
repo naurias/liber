@@ -139,6 +139,10 @@ Fields:
   `<base_dir>/attachments`.
 - `singlefile_cmd` — the executable used for `-a` archiving (default
   `single-file`).
+- `singlefile_browser_path` — browser executable handed to single-file as
+  `--browser-executable-path` on every archive run (leave unset to let
+  single-file find the browser itself). Useful when single-file can't
+  locate e.g. Brave: `"singlefile_browser_path": "/usr/bin/brave"`.
 - `browser_cmd` — override the command used by `liber -s`'s "open"/"archive"
   actions (defaults to `xdg-open` / `open` / the Windows shell handler, by OS).
 - `editor_cmd` — override the command used by `liber -s`'s "markdown" action
