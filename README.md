@@ -7,6 +7,28 @@
 > [!Tip]
 > This readme also serves as liber's documentation. If you simply want to check basic usage, [see here](#usage-overview).
 
+- [Introduction](#introduction)
+- [Features](#features)
+- [Installing](#installing)
+	- [Dependencies](#dependencies)
+	- [Arch Linux](#arch-linux)
+	- [NixOS](#nixos)
+	- [Generic Linux install](#generic-linux-install)
+	- [Build from Source](#build-from-source)
+	- [Windows](#windows)
+	- [MacOS](#macos)
+- [Usage](#usage)
+	- [Usage Overview](#usage-overview)
+	- [Detailed Usage](#detailed-usage)
+- [Configuration](#configuration)
+	- [Layout Example](#layout-example)
+	- [Profiles](#profiles)
+	- [Reindexing](#reindexing)
+- [Design notes](#design-notes)
+	- [Why tags and folders both](#why-tags-and-folders-both)
+	- [Markdown Copy](#markdown-copy)
+	- [Why not a Database for Indexing](#why-not-a-database-for-indexing)
+
 # Introduction
 
 Liber is a cross-platform, simple, private and local CLI bookmark manager that saves bookmarks as browsable plain-text HTML files, optionally archives webpages and writes a markdown copy for bookmark-specific notes, with configurable directories. It also has a simple yet efficient web UI to work in the browser. It uses a simple JSON index (to avoid depending on a database) to manage bookmarks behind the scenes.
