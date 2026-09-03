@@ -1,12 +1,8 @@
 
 
 
-
-https://github.com/user-attachments/assets/c34ab3aa-2a9c-405b-a1dd-4c2bd4571f2e
-https://github.com/user-attachments/assets/4d88bb5d-4796-4270-a35e-2cc488221da2
-
-
-
+<img width="800" height="450" alt="liber-cli-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/a8f68f77-e7c8-48c6-8bf3-4e2df584bcbb" />
+<img width="800" height="450" alt="liber-webui-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/08e04fdd-8ada-4872-92a4-4c2309bca375" />
 
 > [!Tip]
 > This readme also serves as liber's documentation. If you simply want to check basic usage, [see here](#usage-overview).
