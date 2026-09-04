@@ -119,6 +119,7 @@ func pageURL(r *http.Request, page int) string {
 type webBookmarkView struct {
 	ID                       int
 	Title, URL, Folder, Desc string
+	FolderRaw                string // unpadded, for filter links
 	Tags                     []string
 	HasMarkdown, HasArchive  bool
 	AttachCount              int
@@ -129,7 +130,8 @@ func toWebViews(list []*Bookmark) []webBookmarkView {
 	for _, b := range list {
 		out = append(out, webBookmarkView{
 			ID: b.ID, Title: b.Title, URL: b.URL,
-			Folder: displayFolder(b.Folder), Desc: b.Description, Tags: b.Tags,
+			Folder: displayFolder(b.Folder), FolderRaw: b.Folder,
+			Desc: b.Description, Tags: b.Tags,
 			HasMarkdown: b.MarkdownFile != "", HasArchive: b.ArchiveFile != "",
 			AttachCount: len(b.Attachments),
 		})
@@ -312,12 +314,12 @@ func handleAdd(w http.ResponseWriter, r *http.Request) {
 
 	tags := splitWebTags(tagsRaw)
 	folder := sanitizeFolder(folderIn)
-	folder, tags, appliedRuleIDs := resolveAutoRulesForNew(store, normalizedURL, folder, tags)
 
 	title := fetchTitle(normalizedURL)
 	if strings.TrimSpace(title) == "" {
 		title = normalizedURL
 	}
+	folder, tags, appliedRuleIDs := resolveAutoRulesForNew(store, normalizedURL, title, folder, tags)
 
 	b, err := addBookmarkToStore(cfg, store, normalizedURL, title, description, tags, folder, addMarkdown, addArchive)
 	if err != nil {
@@ -652,6 +654,9 @@ ul.results li { padding: .6rem 0; border-bottom: 1px solid var(--border); }
 .badge { font-size: .7rem; background: var(--surface2); padding: .05rem .4rem; border-radius: 999px; color: var(--fg-soft); text-decoration: none; margin-left: .3rem; }
 .meta { font-size: .8rem; color: var(--muted); margin-top: .15rem; }
 .tag { color: var(--tag); }
+a.chip { text-decoration: none; }
+a.chip:hover { text-decoration: underline; }
+a.chip.folder { color: var(--fg-soft); }
 .desc { font-size: .85rem; color: var(--fg-soft); margin-top: .2rem; }
 .rowlinks { font-size: .8rem; margin-top: .25rem; }
 .rowlinks a { color: var(--muted); text-decoration: none; margin-right: .8rem; }
@@ -784,7 +789,7 @@ var searchBodyTmpl = template.Must(template.New("searchBody").Parse(`
 {{range .Results}}
 <li>
   <div class="title"><a class="link" href="{{.URL}}" target="_blank" rel="noopener">{{.Title}}</a>{{if .HasMarkdown}} <a class="badge" href="/markdown/{{.ID}}">md</a>{{end}}{{if .HasArchive}} <a class="badge" href="/archive/{{.ID}}">arc</a>{{end}}{{if .AttachCount}} <a class="badge" href="/edit/{{.ID}}" title="attachments">att{{if gt .AttachCount 1}}{{.AttachCount}}{{end}}</a>{{end}}</div>
-  <div class="meta">{{.URL}} &middot; {{.Folder}}{{if .Tags}}{{range .Tags}} <span class="tag">#{{.}}</span>{{end}}{{end}} &middot; id {{.ID}}</div>
+  <div class="meta">{{.URL}} &middot; {{if .FolderRaw}}<a class="chip folder" href="/?q={{.FolderRaw | urlquery}}&amp;scope=f" title="filter by folder {{.Folder}}">{{.Folder}}</a>{{else}}{{.Folder}}{{end}}{{if .Tags}}{{range .Tags}} <a class="tag chip" href="/?q={{. | urlquery}}&amp;scope=t" title="filter by tag {{.}}">#{{.}}</a>{{end}}{{end}} &middot; id {{.ID}}</div>
   {{if .Desc}}<div class="desc">{{.Desc}}</div>{{end}}
   <div class="rowlinks">
     <a href="/edit/{{.ID}}">edit</a>

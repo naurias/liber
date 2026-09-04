@@ -35,10 +35,14 @@ func runCreate(rawURL string, opt CreateOptions) error {
 		}
 	}
 
-	folder, tags, appliedRuleIDs := resolveAutoRulesForNew(store, url, folder, tags)
-
 	fmt.Printf("Fetching title for %s ...\n", url)
 	title := fetchTitle(url)
+	if strings.TrimSpace(title) == "" {
+		title = url
+	}
+
+	// Rules resolve against the fetched title too, so "title:" matches work here.
+	folder, tags, appliedRuleIDs := resolveAutoRulesForNew(store, url, title, folder, tags)
 
 	description := ""
 
