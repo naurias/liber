@@ -161,7 +161,7 @@ func runImport(path string, opt importOptions) error {
 			}
 		}
 		folder := sanitizeFolder(e.folder)
-		folder, tags, appliedRuleIDs := resolveAutoRulesForNew(store, url, folder, tags)
+		folder, tags, appliedRuleIDs := resolveAutoRulesForNew(store, url, title, folder, tags)
 
 		b, err := addBookmarkToStore(cfg, store, url, title, e.desc, tags, folder, opt.Markdown, opt.Archive)
 		if err != nil {

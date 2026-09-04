@@ -47,6 +47,23 @@ func run(args []string) error {
 		return nil
 	case "-l", "--list":
 		return runList()
+	case "-o", "--open":
+		if len(args) < 2 {
+			return fmt.Errorf("--open requires a bookmark id or range, e.g. liber -o 3 or liber -o 1-3")
+		}
+		spec, rest := consumeIDSpec(args[1:])
+		if len(rest) > 0 {
+			return fmt.Errorf("-o takes only ids; unknown extra arguments: %s", strings.Join(rest, " "))
+		}
+		ids, err := parseIDSpec(spec)
+		if err != nil {
+			return fmt.Errorf("%w (use `liber -l` to see valid ids)", err)
+		}
+		return runOpen(ids)
+	case "--export-site":
+		return runExportSite(args[1:])
+	case "completion":
+		return runCompletion(args[1:])
 	case "-e", "--edit":
 		if len(args) < 2 {
 			return fmt.Errorf("-e requires a bookmark id or range, e.g. liber -e 3 or liber -e 1-3 -md")
@@ -293,6 +310,8 @@ Usage:
                                   markdown copy or archive if either is missing)
   liber -e <id> -t tag-a tag-b   set a bookmark's tags directly
   liber -e <id> -f subfold       move a bookmark to a different folder
+  liber -e <id> -u <url>         change a bookmark's URL (the saved html/material
+                                   is rewritten; filenames stay as they are)
   liber -e <id> -md              add a markdown copy if it doesn't have one yet
   liber -e <id> -a               add an archive if it doesn't have one yet
   liber -e <id> -at file.pdf     attach a file (repeatable)
@@ -303,7 +322,10 @@ Usage:
   liber -d <id>                  delete a bookmark (asks for confirmation)
   liber -d <id> -y               delete without confirmation
   liber -d <ids>                 <id> can also be a range/list, same as -e (one combined
-                                  confirmation listing everything that will be deleted)
+                                   confirmation listing everything that will be deleted)
+  liber -o <id>                  open a bookmark in the browser without the search menu
+                                   (accepts ranges like -e/-d; counts as an open for
+                                   --history, same as the search menu's (o) action)
   liber -r                       reindex: drop entries whose files were deleted
                                   outside liber (quarantining any surviving
                                   markdown/archive copy into <base_dir>/unindexed/),
@@ -320,9 +342,11 @@ Usage:
   liber --folders delete <f>     move a folder's bookmarks back to the root
   liber --history                list bookmarks by most recently opened (via -s's (o) action)
   liber --auto add --match <str> --folder <f> --tag <t1 t2>
-                                  auto-classify new bookmarks whose url contains <str> (folder
-                                  and/or tags; also applied once, immediately, to matching
-                                  existing bookmarks -- a later manual move/edit always sticks)
+                                   auto-classify new bookmarks whose url contains <str> (folder
+                                   and/or tags; also applied once, immediately, to matching
+                                   existing bookmarks -- a later manual move/edit always sticks)
+                                   <str> may be prefixed: "host:example.com" matches only the
+                                   host, "title:docs" only the title; bare is url as before
   liber --auto                   list automations and how many bookmarks each has classified
   liber --auto edit <id> [--match x] [--folder y] [--tag t1 t2] [--reapply]
                                   change a rule; --reapply re-syncs bookmarks it already
@@ -342,8 +366,12 @@ Usage:
   liber --serve                  local web UI at http://127.0.0.1:8080 -- search (with the
                                   same scoping/deep options as -s), plus add, edit, and delete
   liber --serve --addr <host:port>
-                                  use a different address (non-loopback prints a warning:
-                                  it exposes read/add/edit/delete access, no login)
+                                   use a different address (non-loopback prints a warning:
+                                   it exposes read/add/edit/delete access, no login)
+  liber --export-site [dir]      write a static, browsable index.html of the whole
+                                   collection (default <base_dir>/site); links point at
+                                   your existing html/markdown/archive/attachment files
+  liber completion bash|zsh|fish print the completion script for your shell
 
 Flags may be combined, e.g.:
   liber https://example.com -i -t news reading -f articles -md -a
