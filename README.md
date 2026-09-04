@@ -185,6 +185,8 @@ liber <url> -md -a             both markdown and archive
 liber <url> -t tag-a tag-b     attach tags at creation time
 liber <url> -f subfold         save into a subfolder of the base directory
 liber <url> -at report.pdf     attach a local file (repeatable; see "Attachments")
+liber -o 3                     open bookmark id 3 
+liber -o 1,3-8                 open bookmark at ids 1 and 3 to 8
 liber -s                       search/browse bookmarks, open or edit them (fzf if available)
 liber -sn / -su / -st / -sd / -sf
                                 same, but scoped to one field: title / url / tags / description / folder
@@ -199,6 +201,7 @@ liber -e <id> -t tag-a tag-b   set a bookmark's tags directly (non-interactive)
 liber -e <id> -f subfold       move a bookmark to a different folder (non-interactive)
 liber -e <id> -md              add a markdown copy if it doesn't have one yet
 liber -e <id> -a               add an archive if it doesn't have one yet
+liber -e <id> -u <new url>     edit url of specific id
 liber -e <id> -at report.pdf   attach a file to an existing bookmark (repeatable)
 liber -e <id> -dt report.pdf   detach by name or number (deletes the saved copy)
 liber -e <ids> ...             <id> can be a range/list too: 1-3, 2,5,3, or 1-4,7-9 --
@@ -230,6 +233,8 @@ liber -v                       print the version
 liber --serve                  local web UI for search + add (see "Web UI")
 liber --serve --addr <host:port>
                                 use a different address (default 127.0.0.1:8080)
+liber --export-site             # export to a static html 
+liber --export-site <path>      # export to a specific path
 
 ```
 
@@ -340,6 +345,12 @@ By default liber stores bookmarks in a folder named `Bookmarks` created inside y
   > [!Note]
   > The `<ids>` can be a range as well. For example, `liber -e 1-3 -md` will create a markdown copy of bookmarks 1–3; it can also be a comma-separated list: `liber -e 1-5,7,9-11`.
 
+- **Open a bookmark**
+    ```sh 
+    liber -o 3            # open bookmark 3 in the browser
+    liber -o 1-3,7        # several at once (same range/list syntax as -e/-d)
+    ```
+
 - **Delete** a bookmark:
 
   ```sh
@@ -347,6 +358,11 @@ By default liber stores bookmarks in a folder named `Bookmarks` created inside y
   ```
 
   The search flag (`liber -s`) also opens a prompt to delete a bookmark. **Just like editing, the deletion ids can also be a range or comma-separated list.**
+- **Edit Url**
+  ```sh
+  liber -e <id> -u <new-url>       # non-interactive (works with id ranges)
+    liber -e <id>                    # interactive edit also prompts for the URL
+```
 
 - **Attachments**
 
@@ -426,11 +442,28 @@ By default liber stores bookmarks in a folder named `Bookmarks` created inside y
   liber --serve
   liber --serve --addr 127.0.0.1:8181   # use a specific address
   ```
-
   This opens a web UI to manage bookmarks. It allows editing, searching, and adding bookmarks in a browser window. By default it uses port `8080` of `localhost`.
+
+- **Static site export**
+```sh
+liber --export-site            # writes <base_dir>/site/index.html
+liber --export-site /tmp/site  # or any directory
+```
+Generates a single browsable index.html of the whole collection, grouped by folder, each entry linking to the bookmark’s HTML file with badges for markdown, archive, and attachments. Links are relative (../html/...), so the generated page works straight off disk or dropped onto any static file host next to the collection.
+
+The export is regenerable output, not data — rerun after changes. Nothing in the site/ directory is managed or reindexed; delete it freely.
 
 > [!Note]
 > The flags can be combined. For example, `liber <url> -t tag-a -f folder-n` or `liber <url> -md -a` or `liber <url> -i -t news reading -f articles -md -a`.
+
+### Shell completions 
+```sh
+liber completion bash  > ~/.local/share/bash-completion/completions/liber
+liber completion zsh   > ~/.zsh/completions/_liber        # add dir to $fpath, then compinit
+liber completion fish  > ~/.config/fish/completions/liber.fish
+
+```
+The scripts complete all commands and flags, and fetch bookmark ids, tag names, and folder names live from liber itself (liber -l, liber --tags, liber --folders), so they never go stale and always reflect the active profile.
 
 ### Indexing and Reindexing
 
@@ -456,7 +489,7 @@ This is deliberately minimal: one commit, optionally one push, nothing that mana
 
 ### Automation
 
-Auto-classify bookmarks whose URL contains a given string. Consider the example below:
+Auto-classify bookmarks whose URL contains a given string. Also works to specify based on host/site or title. Consider the examples below:
 
 ```sh
 liber --auto add --match doxy --folder hot
@@ -467,9 +500,18 @@ liber --auto edit <id> --folder x --reapply   # change it AND re-sync bookmarks 
 liber --auto delete <id>                      # remove a rule (doesn't undo what it already did)
 liber --auto apply                            # re-run every rule against existing bookmarks
 liber --auto apply <id>                       # re-run just one
-```
 
+liber --auto add --match host:github.com --folder code   # host only (port ignored)
+liber --auto add --match "title:how to" --tag reference  # title only
+liber --auto add --match doxy --folder hot               # URL, as before
+
+```
+```
+host contains "host:github.com" -> folder "code"  (applied to 4 bookmark(s))
+```
 Everything from `doxy.com` should always land in a `hot` folder.
+
+
 
 **Automation never overrides an explicit choice, and never reopens a decision it's already made.** Concretely:
 

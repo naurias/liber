@@ -295,6 +295,19 @@ against the URL (`ruleMatches` in `automation.go`), optionally setting a
 folder and/or adding tags. The whole feature exists to satisfy one
 constraint: **automation must never fight a later manual change.**
 
+Match strings support two prefixes: `host:` matches only the URL's host
+(port stripped, e.g. `host:github.com`), and `title:` matches only the
+bookmark's title.
+Because of `title:` rules, `resolveAutoRulesForNew` runs *after* the title
+has been fetched/`normalizeURL`-ed in both `create.go` and the web add
+handler (`import.go` already knows the title from the export), and before
+interactive prompts so that `-i` still pre-fills with rule-produced
+tags/folders. If a `title:` rule's match depends on the fetched title and
+the fetch fails (title falls back to the URL), the rule simply doesn't
+match. Rules match at their own moment of evaluation: a `title:` rule
+applied at creation time uses the fetched title even if the user's
+interactive edit later changes it.
+
 ### The applied-rules ledger
 
 Every bookmark carries `AppliedRules []AppliedAutoRule` — one entry per
@@ -595,6 +608,18 @@ server restart.
 otherwise; binding to anything else prints a warning, since this server
 has no authentication at all — anyone who can reach it can read, add,
 edit, and delete anything in the collection.
+
+## Static export
+
+`liber --export-site [dir]` (`export_site.go`) writes a single
+`index.html` (under `<base_dir>/site` by default) listing every bookmark
+grouped by folder, with links to the html/markdown/archive/attachment
+files. Links are `filepath.Rel` paths from the output directory to each
+file, so the export works with any output dir, not just the default. It's
+a pure, regenerable projection: re-running overwrites, nothing in the
+export is data. It serves a different need than `--serve` — something to
+drop onto any static host or open off disk, with no liber process running
+— and it deliberately does not chase visual parity with the web UI.
 
 ## Web UI pagination
 
