@@ -7,9 +7,34 @@ import (
 	"time"
 )
 
-// ruleMatches is a case-insensitive substring check against url.
-func ruleMatches(r *AutoRule, url string) bool {
-	return r.Match != "" && strings.Contains(strings.ToLower(url), strings.ToLower(r.Match))
+// ruleMatches is a case-insensitive substring check; "host:"/"title:" prefixes
+// switch the target from the URL (default) to its host or the bookmark's title.
+// See dev-docs.md#automation.
+func ruleMatches(r *AutoRule, url, title string) bool {
+	match := r.Match
+	target := strings.ToLower(url)
+	if rest, ok := strings.CutPrefix(strings.ToLower(match), "title:"); ok {
+		match, target = rest, strings.ToLower(title)
+	} else if rest, ok := strings.CutPrefix(strings.ToLower(match), "host:"); ok {
+		match, target = rest, hostOf(url)
+	}
+	return match != "" && strings.Contains(target, match)
+}
+
+// hostOf returns the lowercased host part of url, or "" if it can't be parsed.
+func hostOf(url string) string {
+	rest := url
+	if i := strings.Index(rest, "://"); i != -1 {
+		rest = rest[i+3:]
+	}
+	if i := strings.IndexAny(rest, "/?#"); i != -1 {
+		rest = rest[:i]
+	}
+	// strip any port -- host-only matching should ignore it
+	if i := strings.LastIndex(rest, ":"); i != -1 {
+		rest = rest[:i]
+	}
+	return strings.ToLower(rest)
 }
 
 func findAppliedRule(applied []AppliedAutoRule, ruleID int) (AppliedAutoRule, bool) {
@@ -39,10 +64,10 @@ func ruleIDsOf(applied []AppliedAutoRule) []int {
 }
 
 // resolveAutoRulesForNew computes the effective folder/tags for a brand new bookmark; see dev-docs.md#automation.
-func resolveAutoRulesForNew(store *Store, url, folder string, tags []string) (string, []string, []AppliedAutoRule) {
+func resolveAutoRulesForNew(store *Store, url, title, folder string, tags []string) (string, []string, []AppliedAutoRule) {
 	var applied []AppliedAutoRule
 	for _, r := range store.AutoRules {
-		if !ruleMatches(r, url) {
+		if !ruleMatches(r, url, title) {
 			continue
 		}
 		used := false
@@ -74,7 +99,7 @@ func applyRulesToExisting(cfg Config, b *Bookmark, rules []*AutoRule) bool {
 	changed := false
 	folderChanged := false
 	for _, r := range rules {
-		if seen[r.ID] || !ruleMatches(r, b.URL) {
+		if seen[r.ID] || !ruleMatches(r, b.URL, b.Title) {
 			continue
 		}
 		used := false
@@ -107,7 +132,7 @@ func applyRulesToExisting(cfg Config, b *Bookmark, rules []*AutoRule) bool {
 func reapplyRule(cfg Config, b *Bookmark, r *AutoRule) bool {
 	prev, hadPrev := findAppliedRule(b.AppliedRules, r.ID)
 
-	if !ruleMatches(r, b.URL) {
+	if !ruleMatches(r, b.URL, b.Title) {
 		if hadPrev {
 			b.AppliedRules = removeAppliedRule(b.AppliedRules, r.ID)
 			return true
@@ -149,7 +174,13 @@ func reapplyRule(cfg Config, b *Bookmark, r *AutoRule) bool {
 
 func describeRule(r *AutoRule) string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "[%d] url contains %q", r.ID, r.Match)
+	kind := "url"
+	if _, ok := strings.CutPrefix(strings.ToLower(r.Match), "title:"); ok {
+		kind = "title"
+	} else if _, ok := strings.CutPrefix(strings.ToLower(r.Match), "host:"); ok {
+		kind = "host"
+	}
+	fmt.Fprintf(&sb, "[%d] %s contains %q", r.ID, kind, r.Match)
 	if r.Folder != "" {
 		fmt.Fprintf(&sb, " -> folder %q", r.Folder)
 	}
