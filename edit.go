@@ -103,11 +103,13 @@ func addArchiveCopy(cfg Config, b *Bookmark) {
 
 // editBookmarkInteractive prompts for every field and offers to add missing markdown/archive.
 func editBookmarkInteractive(cfg Config, b *Bookmark) {
+	newURL := normalizeURL(promptDefault("URL", b.URL))
 	newTitle := promptDefault("Title", b.Title)
 	newDesc := promptDefault("Description", b.Description)
 	newTagsLine := promptDefault("Tags (space separated)", strings.Join(b.Tags, " "))
 	newFolder := sanitizeFolder(promptDefault("Folder", b.Folder))
 
+	b.URL = newURL
 	b.Title = newTitle
 	b.Description = newDesc
 	if strings.TrimSpace(newTagsLine) == "" {
@@ -138,6 +140,8 @@ type editFlags struct {
 	tags        []string
 	folderSet   bool
 	folder      string
+	urlSet      bool
+	url         string
 	addMarkdown bool
 	addArchive  bool
 	attach      []string
@@ -162,6 +166,13 @@ func parseEditFlags(args []string) (editFlags, error) {
 			}
 			ef.folderSet = true
 			ef.folder = args[i+1]
+			i++
+		case "-u", "--url":
+			if i+1 >= len(args) {
+				return ef, fmt.Errorf("-u requires a URL")
+			}
+			ef.urlSet = true
+			ef.url = args[i+1]
 			i++
 		case "-md", "--markdown":
 			ef.addMarkdown = true
@@ -222,6 +233,9 @@ func runEdit(ids []int, rest []string) error {
 			folderChanged := false
 			if ef.tagsSet {
 				b.Tags = dedupe(ef.tags)
+			}
+			if ef.urlSet {
+				b.URL = normalizeURL(ef.url)
 			}
 			if ef.folderSet {
 				newFolder := sanitizeFolder(ef.folder)
