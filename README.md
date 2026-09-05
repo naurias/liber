@@ -75,10 +75,10 @@ To build liber from source you only need:
 ## Arch Linux
 
 - Install the optional dependencies above
-- Download the package build from [latest releases](https://github.com/naurias/liber/releases/latest/download/PKGBUILD) and install it, or simply:
+- Download the package build from [latest releases](https://github.com/liber-bkm/liber/releases/latest/download/PKGBUILD) and install it, or simply:
 
 ```sh
-wget https://github.com/naurias/liber/releases/latest/download/PKGBUILD
+wget https://github.com/liber-bkm/liber/releases/latest/download/PKGBUILD
 makepkg -si
 ```
 
@@ -90,7 +90,7 @@ This repo provides a flake to install it on your NixOS system.
 
   ```nix
   inputs = {
-    liber.url = "github:naurias/liber";
+    liber.url = "github:liber-bkm/liber";
     liber.inputs.nixpkgs.follows = "nixpkgs";
   };
   ```
@@ -110,9 +110,9 @@ This repo provides a flake to install it on your NixOS system.
   You can also try it on the go:
 
   ```sh
-  nix shell github:naurias/liber   # enter a shell with liber
+  nix shell github:liber-bkm/liber   # enter a shell with liber
   # or run the binary directly
-  nix run github:naurias/liber
+  nix run github:liber-bkm/liber
   ```
 
 > [!Note]
@@ -120,7 +120,7 @@ This repo provides a flake to install it on your NixOS system.
 
 ## Generic Linux install
 
-- Download the binary from [latest releases](https://github.com/naurias/liber/releases/latest) or directly from [here](https://github.com/naurias/liber/releases/latest/download/liber)
+- Download the binary from [latest releases](https://github.com/liber-bkm/liber/releases/latest) or directly from [here](https://github.com/liber-bkm/liber/releases/latest/download/liber)
 - Place the binary in your `PATH`:
 
   ```sh
@@ -134,7 +134,7 @@ This repo provides a flake to install it on your NixOS system.
 Clone this repo and enter the directory:
 
 ```sh
-git clone https://github.com/naurias/liber.git
+git clone https://github.com/liber-bkm/liber.git
 cd liber
 ```
 
@@ -157,7 +157,7 @@ Make sure to install the optional dependencies if you want the optional features
 
 ## Windows
 
-- Download the `liber-setup.exe` from the [latest releases](https://github.com/naurias/liber/releases/latest) or use the [direct download link](https://github.com/naurias/liber/releases/latest/download/liber-setup.exe)
+- Download the `liber-setup.exe` from the [latest releases](https://github.com/liber-bkm/liber/releases/latest) or use the [direct download link](https://github.com/liber-bkm/liber/releases/latest/download/liber-setup.exe)
 - Install it as you would any other `.exe` file
 - Open a terminal and you can start using liber. If you plan to use liber on the terminal extensively on Windows instead of the web UI (`liber --serve`), I'd recommend using Windows Terminal or [wezterm](https://wezterm.org/index.html).
 - In terminal run `liber config` to find the config directory and set it up as you see fit. See [Configuration](#configuration)
